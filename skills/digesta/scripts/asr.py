@@ -7,7 +7,8 @@
 
 usage: uv run asr.py <command> <会議のディレクトリ> [引数]
 
-  full <dir>                          全編を文字起こしして digest/work/transcript_asr.md に保存する(文字起こしがない録画用。遅い)
+  full <dir> [--force]                全編を文字起こしして digest/work/transcript_asr.md に保存する(文字起こしがない録画用。遅い)
+                                      途中で止めても、もう一度実行すれば続きから起こす。最初からやり直すなら --force
 
   windows <dir> 205-285 430-530 ...   元音声の指定区間(秒)を単語タイムスタンプ付きで文字起こしする
                                       結果は digest/work/win/<開始秒>.json と .txt に保存し、件数だけ表示する(--print で全文も)
@@ -109,12 +110,30 @@ def main():
     cmd, root, args = sys.argv[1], Path(sys.argv[2]).resolve(), sys.argv[3:]
     work = root / "digest/work"
     if cmd == "full":
-        segs, _ = model().transcribe(audio(work / "audio16k.wav"), language="ja", vad_filter=True, condition_on_previous_text=False, initial_prompt=prompt_of(root))
-        with open(work / "transcript_asr.md", "w") as f:
+        # 途中で止めても、もう一度実行すれば続きから起こす(1 文ずつ書き出しているので、最後の文の頭からやり直す)。
+        # 最初からやり直すなら --force。終わったら transcript_asr.done を置く
+        dst, done = work / "transcript_asr.md", work / "transcript_asr.done"
+        if "--force" in sys.argv:
+            dst.unlink(missing_ok=True); done.unlink(missing_ok=True)
+        if done.exists():
+            sys.exit(f"{dst} は全編の文字起こしが済んでいる(やり直すなら --force)")
+        kept, offset = [], 0
+        if dst.exists():
+            blocks = [b for b in dst.read_text().split("\n\n") if b.strip()]
+            stamps = [re.match(r"^\[(\d+):(\d+):(\d+)\]", b) for b in blocks]
+            if blocks and stamps[-1]:
+                h, m_, sec = (int(x) for x in stamps[-1].groups())
+                offset, kept = h * 3600 + m_ * 60 + sec, blocks[:-1]
+                print(f"続きから起こす: {offset // 60}分{offset % 60:02d}秒から(やり直すなら --force)", flush=True)
+        samples = audio(work / "audio16k.wav")[offset * 16000:]
+        segs, _ = model().transcribe(samples, language="ja", vad_filter=True, condition_on_previous_text=False, initial_prompt=prompt_of(root))
+        with open(dst, "w") as f:
+            f.write("".join(b + "\n\n" for b in kept)); f.flush()
             for s in segs:
-                t = int(s.start)
+                t = offset + int(s.start)
                 f.write(f"[{t // 3600:02d}:{t % 3600 // 60:02d}:{t % 60:02d}] {s.text.strip()}\n\n"); f.flush()
-        print(work / "transcript_asr.md", "(話者の区別はない)")
+        done.write_text("")
+        print(dst, "(話者の区別はない)")
     elif cmd == "windows":
         (work / "win").mkdir(parents=True, exist_ok=True)
         m, hint = model(), prompt_of(root)

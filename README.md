@@ -290,7 +290,7 @@ A `digesta.md` is created in the project on the first run; add your meeting type
 | "録画ファイルが 2 個ある" (two recordings found) | Add `video: <file name>` to the meeting's `digesta.md` settings |
 | Card text is cut off | A YAML value contains ` #` or `: `; quote it |
 | The start or end of a word is clipped | In `digest/cuts.yaml`, move `start` earlier / `end` later by 0.2–0.4 s |
-| Transcription is slow | Slower than real time on Intel Macs. The skill transcribes only candidate ranges; use full transcription (`asr.py full`) only when needed |
+| Transcription is slow | Slower than real time on Intel Macs. The skill transcribes only candidate ranges; use full transcription (`asr.py full`) only when needed. If it is interrupted, running it again resumes where it stopped (`--force` starts over) |
 
 ## License
 

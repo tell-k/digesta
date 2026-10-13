@@ -405,21 +405,27 @@ def cmd_init(ep, a):
 
 def import_transcripts(ep):
     """文字起こしや会議メモ(docx / vtt / srt / txt / md)を digest/work/transcript_*.md に取り込む"""
-    found = []
+    found, skipped = [], []
+    caps = {p.stem for p in ep.root.iterdir() if p.suffix.lower() in (".vtt", ".srt")}
     for f in sorted(ep.root.iterdir()):
         ext, dst = f.suffix.lower(), ep.work / f"transcript_{len(found) + 1}.md"
+        if ext == ".docx" and f.stem in caps:
+            # Teams などは同じ文字起こしを docx と vtt で出す。docx は話者の連続をまとめて時刻を落とすので、時刻と話者が残る vtt を使う
+            skipped.append(f.name); continue
         if ext == ".docx" and shutil.which("pandoc"):
             if not dst.exists():
                 run(["pandoc", f, "-t", "markdown", "--wrap=none", "-o", dst])
         elif ext in (".vtt", ".srt"):
             if not dst.exists():
                 dst.write_text(caption_to_md(f.read_text(errors="replace")))
-        elif ext in (".txt", ".md") and f.name.lower() not in ("readme.md", "todo.md"):
+        elif ext in (".txt", ".md") and f.name.lower() not in ("readme.md", "todo.md", "digesta.md"):
             if not dst.exists():
                 shutil.copy(f, dst)
         else:
             continue
         found.append(f"{dst.relative_to(ep.root)} ← {f.name}")
+    if skipped:
+        print("同じ名前の vtt / srt があるので取り込まない(vtt / srt のほうが時刻と話者が残る): " + ", ".join(skipped))
     if found:
         print("文字起こし・メモ:\n  " + "\n  ".join(found))
     else:
@@ -492,7 +498,7 @@ def cmd_grid(ep, a):
 
 def cmd_crop(ep, a):
     """画面共有の領域を自動で検出する。録画は「左に共有画面、右に参加者タイル、上下に黒帯」が多いので、
-    黒い列・行の割合から共有画面の矩形を求め、16:9 に整えた crop(幅:高さ:左:上)を出す。grid で目視するより速い"""
+    黒い列・行の割合から共有画面の矩形を求め、crop(幅:高さ:左:上)を出す。grid で目視するより速い"""
     ep.need_digest()
     from PIL import Image, ImageDraw
     for t in a.args:
@@ -501,21 +507,23 @@ def cmd_crop(ep, a):
         im = Image.open(raw).convert("L"); W, H = im.size; px = im.load()
         dark = lambda v: v < 40
         col = [sum(dark(px[x, y]) for y in range(0, H, 4)) / (H / 4) for x in range(W)]
-        # 左端から、暗くない列が続く範囲 = 共有画面。幅 24px 以上の暗い帯で終わる
+        # 左端から、暗くない列が続く範囲 = 共有画面。右端は、参加者タイルとの隙間になっている最も幅の広いほぼ黒い帯の手前。
+        # 最初の黒い帯で切ると、共有画面の中の暗いサイドバーなどで止まってしまう
         x0 = next((x for x in range(W) if col[x] < 0.9), 0)
-        x1, runlen = W, 0
-        for x in range(x0, W):
-            runlen = runlen + 1 if col[x] >= 0.97 else 0
-            if runlen >= 24:
-                x1 = x - runlen + 1; break
+        x1, best, runlen = W, 11, 0
+        for x in range(x0, W + 1):
+            if x < W and col[x] >= 0.95:
+                runlen += 1
+            else:
+                if runlen > best and x < W:  # 画面の右端に接する黒い余白は隙間ではない
+                    best, x1 = runlen, x - runlen
+                runlen = 0
         row = [sum(dark(px[x, y]) for x in range(x0, x1, 4)) / max(1, (x1 - x0) / 4) for y in range(H)]
         ys = [y for y in range(H) if row[y] < 0.9]
         y0, y1 = (ys[0], ys[-1] + 1) if ys else (0, H)
-        w = x1 - x0; h = round(w * 9 / 16)
-        if h > y1 - y0:  # 共有画面が 16:9 より横長なら、高さに合わせて幅を狭める
-            h = y1 - y0; w = round(h * 16 / 9); x0 = x0 + (x1 - x0 - w) // 2
-        y = min(max(0, y0 + (y1 - y0 - h) // 2), H - h)
-        w, h = w - w % 2, h - h % 2
+        # 検出した矩形をそのまま使う。16:9 でなければ動画にするときに白い余白で埋める(crop_filter)ので、
+        # ここで 16:9 に詰めない(4:3 のスライドの上下や、共有画面の端が切れるため)
+        w, h, y = (x1 - x0) // 2 * 2, (y1 - y0) // 2 * 2, y0
         crop = f"{w}:{h}:{x0}:{y}"
         pv = Image.open(raw).convert("RGB"); d = ImageDraw.Draw(pv); d.rectangle([x0, y, x0 + w, y + h], outline=(255, 0, 0), width=4)
         pv.thumbnail((960, 540)); pv.save(raw)
