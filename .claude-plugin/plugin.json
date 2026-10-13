@@ -1,6 +1,6 @@
 {
   "name": "digesta",
-  "description": "会議や勉強会の録画と文字起こしから、議事録・グラフィックレコーディング画像・ダイジェスト動画を作る。",
+  "description": "Turns a meeting or study-session recording and its transcript into minutes, a graphic recording, and a digest video (built for Japanese meetings).",
   "version": "0.1.0",
   "author": {
     "name": "tell-k"
