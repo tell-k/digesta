@@ -131,19 +131,7 @@ uv run "$SK/scripts/asr.py" <command> <会議> [引数]          # windows / sho
 
 不具合を直したときの確かめ方は別に決まりがある(`references/rules.md`「不具合を直すとき」)。
 
-### 6. 共有文を書く
-
-成果物を社内に共有する投稿文を `digest/share.md` に書く(`all` のとき、または「Slack に共有する文を」と頼まれたとき)。ひな形は `assets/templates/share.md`、作例は `assets/examples/study-share.md`。
-
-- 冒頭は「:季節の絵文字: 忙しい人のための <会議名> ダイジェスト :季節の絵文字2:」。絵文字は Slack のショートコードで書き、開催月に合わせる(10月は :jack_o_lantern: と :ghost:、春は :cherry_blossom: など)。プロジェクトのルールに指定があればそれに従う
-- 冒頭の下に Wiki やチケットの URL と「日時: YYYY-MM-DD HH:MM-HH:MM」を置く
-- 「〜にどうぞ」「〜しよう」のような、読む人に行動を促す言い回しは避ける(上から目線に見える、というユーザーの指摘が二度ある)。「5分あれば見られる長さです」のように、事実を言う形にする
-- 発表(議題)ごとに「発表者「題名」+ 内容1行」。1行は、何の話で何が面白かったかが伝わる言い回しにする。要約の正確さより、読んで見たくなるか
-- 動画の尺、添付するファイル名(`<名前>_ダイジェスト.mp4`、`<名前>_サムネイル.png`、`<名前>_グラレコ_4k.png`、`<名前>_要約.md`)を書く。サムネイルは動画の先頭フレームと同じ画像で、投稿で何の動画か分かるように添える。成果物の名前は日本語(ユーザーの指定)。変えたいときは `digest.py` の `Ep.NAMES`
-- お知らせは、素材で確認できた連絡事項だけ
-- 最後に「録画と文字起こしから作成。誤りがあれば教えてください」の断りを入れる(人名や数値の誤りは本人に届くため)
-
-### 7. 報告する
+### 6. 報告する
 
 次を短く伝える。
 
@@ -154,7 +142,6 @@ uv run "$SK/scripts/asr.py" <command> <会議> [引数]          # windows / sho
 - 耳で確認してほしい点(声の抑揚、BGM の音量、整音の効き具合。Claude は音を聞けない)
 - 配布先(Google ドライブや Slack)にアップしたあと、プレビューで一度聞いてもらうこと。手元で正常でも、配布先の再エンコードでだけ出る問題がある
 - 直したいときに編集するファイル(議事録なら `digest/minutes.md`、原稿なら `digest/narration.md`、字幕やカットなら `digest/cuts.yaml`、人名・用語の表記や読みなら `digesta.md`。その会議だけなら会議フォルダの `digesta.md`)
-- 共有文(`digest/share.md`)の本文。そのまま貼れる形で
 
 ## 参照ファイル
 
@@ -167,5 +154,4 @@ uv run "$SK/scripts/asr.py" <command> <会議> [引数]          # windows / sho
 | `references/styles.md` | スタイルを選ぶ・切り替える・追加するとき。各スタイルの特徴と、スタイルごとのグラレコの書き方 |
 | `references/agents.md` | カット表・グラレコ・検査をサブエージェントに任せるときのプロンプトと、待ち方 |
 | `assets/examples/study/` | 書き方の作例(架空の勉強会)。新しい会議はこれをコピーして書き換えると早い |
-| `assets/templates/share.md` と `assets/examples/study-share.md` | 共有文のひな形と作例 |
 | `assets/templates/` | ひな形。`minutes-meeting.md`(会議用の議事録)、`minutes-study.md`(勉強会用)、`episode.yaml`、`cuts.yaml`、`narration.md` |

@@ -2,12 +2,11 @@
 
 English | [日本語](README.ja.md)
 
-A Claude Code plugin (skill) that turns a meeting or study-session recording and its transcript into three deliverables. The name is Latin for "things arranged and summarized".
+A Claude Code plugin (skill) that turns a meeting or study-session recording and its transcript into minutes, a graphic recording, and a digest video. The name is Latin for "things arranged and summarized".
 
 | Deliverable | What it is | Output |
 |---|---|---|
 | Minutes | Decisions, action items, and the key points of each talk or agenda item | Markdown, optionally docx (`<name>_要約.md`) |
-| Slack post | `digest/share.md` | A ready-to-paste announcement (template: `assets/templates/share.md`) |
 | Graphic recording | A one-page visual summary | PNG (`<name>_グラレコ_4k.png`, `_1920.png`) |
 | Digest video | A few minutes of clips in the speakers' own voices, with subtitles, narrated title/recap cards, and background music | mp4 (`<name>_ダイジェスト.mp4`, 1920x1080) |
 
@@ -229,8 +228,8 @@ digesta/
         │   ├── business/        Business style (same parts; single-color line pictograms)
         │   ├── pop/             Colorful minutes style (characters generated with Gemini)
         │   └── mono/            Yellow / black / gray style
-        ├── templates/           Templates (rules, minutes, the three video texts, Slack post)
-        ├── examples/            A fictional study session (study/) and its Slack post (study-share.md)
+        ├── templates/           Templates (rules, minutes, the three video texts)
+        ├── examples/            A fictional study session (study/)
         └── reference.docx       Style reference for docx minutes
 ```
 
