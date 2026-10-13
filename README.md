@@ -6,9 +6,9 @@ An [Agent Skill](https://agentskills.io/) that turns a meeting or study-session 
 
 | Deliverable | What it is | Output |
 |---|---|---|
-| Minutes | Decisions, action items, and the key points of each talk or agenda item | Markdown, optionally docx (`<name>_要約.md`) |
-| Graphic recording | A one-page visual summary | PNG (`<name>_グラレコ_4k.png`, `_1920.png`) |
-| Digest video | A few minutes of clips in the speakers' own voices, with subtitles, narrated title/recap cards, and background music | mp4 (`<name>_ダイジェスト.mp4`, 1920x1080) |
+| Minutes | Decisions, action items, and the key points of each talk or agenda item | Markdown, optionally docx (`<name>_summary.md`) |
+| Graphic recording | A one-page visual summary | PNG (`<name>_graphic_4k.png`, `_1920.png`) |
+| Digest video | A few minutes of clips in the speakers' own voices, with subtitles, narrated title/recap cards, and background music | mp4 (`<name>_digest.mp4`, 1920x1080) |
 
 > **Note:** digesta is built for Japanese meetings. The skill instructions, the generated minutes, subtitles, narration, file names, and the script messages are in Japanese.
 
@@ -56,7 +56,7 @@ Open the project folder that contains your meeting folders (e.g. `tech-lunch/`) 
 | `/digesta tech-lunch/012` | Builds minutes, image, and video |
 | `/digesta tech-lunch/012 minutes` | Minutes only (a few minutes) |
 | `/digesta tech-lunch/012 minutes,image` | Minutes and image |
-| `/digesta tech-lunch/012 image split by chapter too` | Also outputs a 16:9 image per chapter (`<name>_グラレコ_章N.png`), handy for posting one chapter per Slack thread reply |
+| `/digesta tech-lunch/012 image split by chapter too` | Also outputs a 16:9 image per chapter (`<name>_graphic_chN.png`), handy for posting one chapter per Slack thread reply |
 | `/digesta tech-lunch/012 video` | Video only; also used to rebuild after editing the text |
 | `/digesta tech-lunch/012 minutes also as docx` | Also exports the minutes as docx |
 | `/digesta tech-lunch/012 video make the BGM quieter` | Describe the change in plain words |

@@ -118,7 +118,7 @@ style: mybrand
 | ファイル | 役割 |
 |---|---|
 | `style.yaml` | 名前、説明、フォント(Google Fonts の OFL フォント。ファイル名: [フォルダ, family, weight])、字幕フォント、動画の背景色 `paper`、BGM の既定の指示文 |
-| `cards.html` | 動画のカード5種(opening / chapter / recap / ending / outro)と、任意でサムネイル(`<section id="thumb">`。タイトルスライドの体裁。動画の先頭フレームと `_サムネイル.png` になる。無ければ opening の完成状態を使う)。`#id=…&ch=…&nd=…&img=…` で内容を切り替え、`window.seek(ms)` と `window.END` と `window.READY` を実装する |
+| `cards.html` | 動画のカード5種(opening / chapter / recap / ending / outro)と、任意でサムネイル(`<section id="thumb">`。タイトルスライドの体裁。動画の先頭フレームと `_thumbnail.png` になる。無ければ opening の完成状態を使う)。`#id=…&ch=…&nd=…&img=…` で内容を切り替え、`window.seek(ms)` と `window.END` と `window.READY` を実装する |
 | `frame.html` | 本編の枠。`#ch=…&topic=…`。スライド領域(44,104 から 1344x756)を透明にする |
 | 描画部品の JS | `ICONS` / `icon()` / `mountIcons()` / `mountBoxes()` / `mountArrows()` / `PAL`(章の色名 → `{hex, tint}`)を定義する。cards / frame / grareco から呼ばれる |
 | `grareco-base.html` | グラレコの雛形。`lib/fonts.css` と `lib/<描画部品>.js` と `lib/icons.js` を読み込み、描画が終わったら `window.READY = true` にする |

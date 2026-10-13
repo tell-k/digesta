@@ -6,8 +6,8 @@
 
 | 形式 | 指定 | 出力 |
 |---|---|---|
-| Markdown | `--format md`(既定) | `output/<会議名>_要約.md` |
-| Word | `--format docx` | `output/<会議名>_要約.docx` |
+| Markdown | `--format md`(既定) | `output/<会議名>_summary.md` |
+| Word | `--format docx` | `output/<会議名>_summary.docx` |
 | 両方 | `--format both` | 上の2つ |
 
 - 既定は設定の `minutes_format`(プロジェクトか会議の `digesta.md` の冒頭)。ユーザーが「docx でも」「Word で」と言ったら `--format` で指定する。今後もずっとその形式がよいと分かったら、設定のほうを書き換える。

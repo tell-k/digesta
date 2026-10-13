@@ -15,7 +15,7 @@ usage: uv run digest.py <command> <会議のディレクトリ> [options]
   frames     完成動画の確認用に、区切りごとのフレームを 1 枚の一覧にする         [--all]
   plan       episode.yaml / cuts.yaml / narration.md を検査し、ビルド前に尺の見積もりを出す
   image      digest/grareco.html を描画して output/ に PNG を出す           [--split]
-             --split で、章ごとのパネル(.panel / .col)も 16:9 の画像(<名前>_グラレコ_章N.png)に切り出す(Slack にスレッドで貼る用)
+             --split で、章ごとのパネル(.panel / .col)も 16:9 の画像(<名前>_graphic_chN.png)に切り出す(Slack にスレッドで貼る用)
   narration  digest/narration.md から音声を合成する                  [--only 名前,名前] [--force]
   bgm        BGM を生成する                                          [--force]
   video      動画を作る(変わった部分だけ作り直す)                      [--force] [--no-bgm]
@@ -242,8 +242,8 @@ class Ep:
     def video(self):
         return self.media(VIDEO_EXT)
 
-    # 成果物のファイル名は日本語で分かりやすく(例: 2026-10-02_ダイジェスト.mp4)
-    NAMES = {"minutes": "要約", "image": "グラレコ", "movie": "ダイジェスト", "thumb": "サムネイル"}
+    # 成果物のファイル名(例: 2026-10-02_digest.mp4)
+    NAMES = {"minutes": "summary", "image": "graphic", "movie": "digest", "thumb": "thumbnail"}
 
     def doc(self, kind, ext):
         return self.out / f"{self.name}_{self.NAMES.get(kind, kind)}.{ext}"
@@ -636,7 +636,7 @@ def split_panels(ep, b, src, w, h):
         cx, cy = x + pw / 2 - cw / 2, y + ph / 2 - chh / 2
         tmp = ep.work / f"panel_{i}.png"
         pg.screenshot(path=str(tmp), clip={"x": max(0, cx), "y": max(0, cy), "width": min(cw, w - max(0, cx)), "height": min(chh, h - max(0, cy))})
-        dst = ep.out / f"{ep.name}_{ep.NAMES['image']}_章{i}.png"
+        dst = ep.out / f"{ep.name}_{ep.NAMES['image']}_ch{i}.png"
         run(["ffmpeg", "-v", "error", "-y", "-i", tmp, "-vf", f"pad={int(cw * 2)}:{int(chh * 2)}:(ow-iw)/2:(oh-ih)/2:color={bg},scale=1920:1080", dst])
         tmp.unlink(); out.append(dst)
     pg.evaluate("() => { window.__panels.concat(window.__others).forEach(e => e.style.visibility = ''); }")
