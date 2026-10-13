@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>グラレコ</title>
+<link rel="stylesheet" href="lib/fonts.css">
+<style>
+  :root { --ink:#2b2622; --sub:#4a4540; --gray:#8a7c66; --hl:#fff176;
+          --c1:#e8445a; --c2:#3b82e6; --c3:#1fb59b; --c4:#f08a24; --c5:#8b5cf6; --c6:#d63a8a; --c7:#f2b705;
+          --t1:#ffe3e8; --t2:#deebfb; --t3:#dcf5ee; --t4:#fff0d6; --t5:#ece4fb; --t6:#fbe0ef; --t7:#fff6c8; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body { width:1840px; height:1035px; overflow:hidden; background:#fff; background-image:radial-gradient(#ece8e0 1.1px, transparent 1.3px); background-size:24px 24px;
+         color:var(--ink); font-family:"Zen Maru Gothic"; font-weight:500; font-size:15px; line-height:1.45; }
+  .y { font-family:"Yusei Magic"; font-weight:400; } .mp { font-family:"Mochiy Pop One"; font-weight:400; } .k { font-family:"Zen Kurenaido"; font-weight:400; }
+  b { font-weight:700; }
+  mark { background:linear-gradient(transparent 50%, var(--hl) 50%, var(--hl) 94%, transparent 94%); color:inherit; padding:0 2px; }
+  [data-box] > *:not(svg) { position:relative; z-index:1; } [data-box] > svg.ico, [data-box] > img { position:relative; z-index:1; }
+  img.char { mix-blend-mode:multiply; object-fit:contain; }
+
+  /* ヘッダー */
+  header { position:absolute; left:24px; right:24px; top:10px; height:118px; display:flex; align-items:center; gap:18px; }
+  h1 { font-family:"Mochiy Pop One"; font-weight:400; font-size:46px; margin:0; line-height:1.05; position:relative; white-space:nowrap; }
+  h1 small { display:block; font-family:"Yusei Magic"; font-size:22px; margin-bottom:2px; }
+  h1::after { content:""; position:absolute; left:-6px; right:-10px; bottom:4px; height:18px; background:var(--hl); z-index:-1; border-radius:9px; transform:rotate(-.6deg); }
+  .ribbon { display:inline-block; color:#fff; padding:2px 16px 4px; border-radius:6px 18px 6px 18px; font-family:"Mochiy Pop One"; font-weight:400; font-size:20px; transform:rotate(-3deg); }
+  .kv { padding:6px 12px; font-size:14px; line-height:1.4; }
+  .kv > span { display:block; } .kv b { display:block; font-family:"Yusei Magic"; font-weight:400; font-size:15px; }
+  .cast { display:flex; gap:6px; align-items:flex-end; }
+  .cast .p { text-align:center; font-size:12.5px; line-height:1.15; width:76px; }
+  .cast img { width:64px; height:64px; display:block; margin:0 auto 2px; }
+  .agenda { margin-left:auto; padding:6px 12px; font-size:13.5px; line-height:1.35; }
+  .agenda > span { display:block; } .agenda b { display:block; font-family:"Yusei Magic"; font-weight:400; font-size:15px; margin-bottom:2px; }
+  .agenda .ag { display:flex; gap:6px; align-items:center; white-space:nowrap; }
+  .num { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; color:#fff; font-family:"Mochiy Pop One"; font-weight:400; font-size:13px; flex:none; }
+
+  /* 本体: 議題パネル(グリッドの列数と行数は内容に合わせて変える) */
+  main { position:absolute; left:24px; right:24px; top:138px; bottom:148px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:18px; }
+  .panel { position:relative; padding:12px 14px; display:flex; flex-direction:column; gap:8px; --c:var(--c1); --t:var(--t1); }
+  .panel > * { position:relative; z-index:1; } .panel > svg:first-child { z-index:0; }
+  .panel.c1 { --c:var(--c1); --t:var(--t1); } .panel.c2 { --c:var(--c2); --t:var(--t2); } .panel.c3 { --c:var(--c3); --t:var(--t3); } .panel.c4 { --c:var(--c4); --t:var(--t4); } .panel.c5 { --c:var(--c5); --t:var(--t5); } .panel.c6 { --c:var(--c6); --t:var(--t6); } .panel.c7 { --c:var(--c7); --t:var(--t7); }
+  .panel .hd { display:flex; align-items:flex-start; gap:10px; }
+  .panel .hd .num { width:36px; height:36px; font-size:22px; background:var(--c); margin-top:1px; }
+  .panel .ttl { font-family:"Mochiy Pop One"; font-weight:400; font-size:21px; line-height:1.2; }
+  .panel .who { font-size:13px; color:var(--gray); font-family:"Zen Kurenaido"; font-weight:400; }
+  .tag { display:inline-block; font-family:"Yusei Magic"; font-weight:400; color:#fff; background:var(--c); font-size:14.5px; padding:0 10px 1px; border-radius:4px 12px 4px 12px; transform:rotate(-1.5deg); white-space:nowrap; }
+  .big { font-size:17.5px; font-weight:700; line-height:1.3; }
+  .xl { font-family:"Mochiy Pop One"; font-weight:400; font-size:24px; color:var(--c); line-height:1.1; }
+  .note { font-size:13.5px; color:var(--sub); line-height:1.4; font-weight:500; }
+  .row { display:flex; gap:10px; align-items:center; } .top { align-items:flex-start; } .grow { flex:1; min-width:0; }
+  .ico { flex:none; }
+  .bub { display:inline-block; padding:4px 12px; font-family:"Yusei Magic"; font-weight:400; font-size:14.5px; line-height:1.3; }
+  .tint { background:var(--t); border-radius:10px; padding:7px 10px; }
+  .chip { display:inline-block; font-size:13px; padding:0 9px; margin:2px 2px 2px 0; white-space:nowrap; }
+  .ar { font-family:"Yusei Magic"; color:var(--c); font-size:20px; flex:none; }
+  .steps { display:flex; align-items:center; gap:5px; }
+  .steps .st { flex:1; text-align:center; font-size:13px; line-height:1.3; padding:5px 3px; }
+  .steps .st b { display:block; font-size:14px; }
+  ul.pts { margin:0; padding:0; list-style:none; } ul.pts li { padding-left:22px; position:relative; margin:2px 0; }
+  ul.pts li::before { content:"✓"; position:absolute; left:2px; color:var(--c); font-weight:700; }
+  .qa { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:50%; background:var(--ink); color:#fff; font-size:12.5px; font-weight:700; flex:none; }
+  .ok { color:#1fb59b; font-weight:700; } .ng { color:#e8445a; font-weight:700; }
+  .panel img.char { position:absolute; right:10px; bottom:8px; width:130px; height:130px; z-index:0; opacity:.95; }
+
+  /* 下部: 決定事項とネクストアクション */
+  footer { position:absolute; left:24px; right:24px; bottom:14px; height:122px; display:grid; grid-template-columns:1.1fr 1fr; gap:18px; }
+  .foot { padding:8px 14px 8px; }
+  .foot > * { position:relative; z-index:1; }
+  .foot h2 { margin:0 0 4px; display:flex; align-items:center; gap:10px; }
+  ol.dec { margin:0; padding-left:26px; font-size:14px; line-height:1.5; }
+  ol.dec li::marker { font-family:"Mochiy Pop One"; color:var(--c1); }
+  table.todo { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.todo th { text-align:left; color:var(--gray); font-weight:700; font-size:12.5px; padding:1px 6px; border-bottom:2px solid #e9e4dc; }
+  table.todo td { padding:2px 6px; border-bottom:1px solid #e9e4dc; }
+  table.todo td:nth-child(2), table.todo td:nth-child(3) { white-space:nowrap; color:var(--sub); }
+</style>
+
+<!-- ここから下を会議の内容で書く。部品の使い方は skill の references/styles.md を参照。キャラクター画像は chars/<名前>.jpg -->
+<header>
+  <h1><small class="y">2026/1/1(木)</small>会議名 <span style="font-size:30px">(略称)</span></h1>
+  <span class="ribbon" style="background:var(--c4)">議事録</span>
+  <div class="kv" data-box="white,blue" data-sw="2.4" data-r="12"><span><b>📅 日時</b>2026/1/1(木) 10:00〜11:00<br>オンライン</span></div>
+  <div class="cast">
+    <div class="p"><img class="char" src="chars/a.jpg">◯◯<br><span class="k">(nick)</span></div>
+  </div>
+  <div class="agenda" data-box="white,#2b2622" data-sw="2.4" data-r="12"><span><b>☑ アジェンダ(全3件)</b>
+    <div class="ag"><span class="num" style="background:var(--c1)">1</span>議題1</div>
+    <div class="ag"><span class="num" style="background:var(--c2)">2</span>議題2</div>
+    <div class="ag"><span class="num" style="background:var(--c3)">3</span>議題3</div>
+  </span></div>
+</header>
+
+<main>
+  <section class="panel c1" data-box="coral,coral" data-sw="4" data-r="18">
+    <div class="hd"><span class="num">1</span><div><div class="ttl">議題1のタイトル</div><div class="who">発表: ◯◯</div></div></div>
+    <div class="row top"><i data-ico="bulb" data-s="48"></i><div class="grow"><span class="tag">見出し</span><div class="big">要点を<mark>強調</mark>して</div><div class="note">補足</div></div></div>
+    <img class="char" src="chars/a.jpg">
+  </section>
+  <section class="panel c2" data-box="blue,blue" data-sw="4" data-r="18"><div class="hd"><span class="num">2</span><div class="ttl">議題2</div></div></section>
+  <section class="panel c3" data-box="teal,teal" data-sw="4" data-r="18"><div class="hd"><span class="num">3</span><div class="ttl">議題3</div></div></section>
+</main>
+
+<footer>
+  <div class="foot" data-box="white,coral" data-sw="3" data-r="16"><h2><span class="ribbon" style="background:var(--c1)">✓ 決定事項</span></h2><ol class="dec"><li>決まったこと</li></ol></div>
+  <div class="foot" data-box="white,teal" data-sw="3" data-r="16"><h2><span class="ribbon" style="background:var(--c3)">→ ネクストアクション</span></h2>
+    <table class="todo"><tr><th>タスク</th><th>担当</th><th>期限</th></tr><tr><td>やること</td><td>◯◯</td><td>1/8</td></tr></table>
+  </div>
+</footer>
+
+<script src="lib/rough.js"></script>
+<script src="lib/pop.js"></script>
+<script src="lib/icons.js"></script>
+<script>
+  document.fonts.ready.then(() => Promise.all(["Yusei Magic", "Zen Kurenaido", "Mochiy Pop One", "Zen Maru Gothic"].map((f) => document.fonts.load(`16px "${f}"`, "あ")))).then(async () => {
+    document.querySelectorAll("img").forEach((im) => { im.onerror = () => im.remove(); });
+    await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
+    mountIcons(); mountBoxes(); mountArrows();
+    document.querySelectorAll(".panel").forEach((c, i) => {
+      const kids = [...c.children].filter((x) => !x.matches("svg, img.char"));
+      const last = kids[kids.length - 1].getBoundingClientRect().bottom, box = c.getBoundingClientRect().bottom;
+      console.log("panel", i + 1, "余白(px):", Math.round(box - last));
+    });
+    window.READY = true;
+  });
+</script>
+</html>

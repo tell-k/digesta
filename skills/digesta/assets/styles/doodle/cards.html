@@ -1,0 +1,180 @@
+<!doctype html>
+<!-- 動画のカード(オープニング・章タイトル・まとめ・エンディング・締め)。
+     #id=opening|chapter|recap|ending|outro &ch=章番号 &nd=ナレーション秒 &img=グラレコ画像の URL
+     内容は episode.js(bpd.py が episode.yaml から生成)から読む。アニメーションは seek(ms) で時刻を指定して1フレームずつ撮る -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; }
+  body { width:1920px; height:1080px; overflow:hidden; color:#2b2622; font-family:"Yusei Magic"; position:relative;
+    background:#fdf7e8; background-image:radial-gradient(rgba(120,100,60,.13) 1px, transparent 1.2px); background-size:18px 18px; }
+  section { position:absolute; inset:0; display:none; }
+  section.on { display:block; }
+  .abs { position:absolute; }
+  .k { font-family:"Zen Kurenaido"; }
+  .gothic { font-family:"Zen Maru Gothic"; font-weight:700; }  /* 英数字の字形をはっきり見せたいとき(モデル名など) */
+  [data-box] > *:not(svg) { position:relative; z-index:1; }
+  [data-box] > svg.ico { position:relative; z-index:1; }
+
+  /* アニメーション: --d が開始時刻 */
+  .pop { animation:pop .5s cubic-bezier(.3,1.5,.5,1) both; animation-delay:var(--d,0s); }
+  .up { animation:up .5s cubic-bezier(.2,.8,.3,1) both; animation-delay:var(--d,0s); }
+  .left { animation:left .5s cubic-bezier(.2,.8,.3,1) both; animation-delay:var(--d,0s); }
+  .wig { animation:pop .5s cubic-bezier(.3,1.5,.5,1) both, wig 2.4s ease-in-out infinite; animation-delay:var(--d,0s), calc(var(--d,0s) + .5s); }
+  mark { background:linear-gradient(transparent 55%, var(--hl,#f9c846) 55%, var(--hl,#f9c846) 94%, transparent 94%) no-repeat; color:inherit; padding:0 4px;
+    animation:wipe .6s ease-out both; animation-delay:var(--d,0s); }
+  @keyframes pop { from { opacity:0; transform:scale(.5) rotate(var(--r0,-6deg)); } to { opacity:1; transform:scale(1) rotate(var(--r,0deg)); } }
+  @keyframes up { from { opacity:0; transform:translateY(40px); } to { opacity:1; transform:none; } }
+  @keyframes left { from { opacity:0; transform:translateX(-60px); } to { opacity:1; transform:none; } }
+  @keyframes wig { 0%,100% { transform:rotate(calc(var(--r,0deg) - 3deg)); } 50% { transform:rotate(calc(var(--r,0deg) + 3deg)); } }
+  @keyframes wipe { from { background-size:0% 100%; } to { background-size:100% 100%; } }
+  @keyframes kb { from { transform:scale(1.0); } to { transform:scale(1.06); } }
+
+  /* opening */
+  #opening h1 { font-family:"Mochiy Pop One"; font-size:128px; margin:0; left:250px; top:120px; white-space:nowrap; }
+  #opening h1 b { color:#f2665b; font-weight:normal; }
+  #opening h1::after { content:""; position:absolute; left:-10px; right:-14px; bottom:10px; height:38px; background:#f9c846; z-index:-1; border-radius:19px; transform:rotate(-.6deg); }
+  .dg { color:#fff; background:#2b2622; font-size:52px; padding:2px 30px 6px; border-radius:8px 28px 8px 28px; white-space:nowrap; }
+  .tile { height:400px; text-align:center; padding-top:26px; }
+  .tile .who { color:#fff; font-size:34px; padding:1px 22px 4px; border-radius:24px; display:inline-block; margin-top:6px; }
+  .tile .t { font-size:36px; line-height:1.2; margin-top:12px; padding:0 14px; }
+  .tile .n { font-family:"Mochiy Pop One"; font-size:54px; position:absolute; left:26px; top:14px; }
+
+  /* chapter */
+  .chap .num { font-family:"Mochiy Pop One"; font-size:250px; line-height:1; left:150px; top:120px; opacity:.9; }
+  .chap .who { color:#fff; font-size:56px; padding:2px 36px 8px; border-radius:44px; left:700px; top:300px; white-space:nowrap; }
+  .chap .ttl { font-size:104px; line-height:1.1; left:700px; top:420px; white-space:nowrap; }
+  .chap .sub { font-family:"Zen Kurenaido"; font-size:42px; left:704px; top:560px; line-height:1.3; white-space:nowrap; }
+  .chap .band { left:0; right:0; top:230px; height:560px; transform:skewY(-2deg); opacity:.55; }
+
+  /* recap */
+  .recap .hd { left:120px; top:70px; font-size:54px; display:flex; align-items:center; gap:22px; }
+  .recap .hd .tag { color:#fff; padding:0 24px 6px; border-radius:8px 26px 8px 26px; transform:rotate(-2deg); display:inline-block; }
+  .recap .pt { left:150px; width:1620px; height:230px; display:flex; align-items:center; gap:40px; padding:0 50px; font-size:52px; line-height:1.3; }
+  .recap .pt .n { font-family:"Mochiy Pop One"; font-size:60px; flex:none; }
+  .recap .pt .tx { flex:1; }
+  .recap .pt small { display:block; font-family:"Zen Kurenaido"; font-size:36px; }
+
+  /* ending */
+  #ending .img { left:330px; top:44px; width:1260px; height:709px; overflow:hidden; border-radius:10px; }
+  #ending .img img { width:100%; height:100%; display:block; animation:kb 14s linear both; transform-origin:50% 40%; }
+  #ending .msg { left:0; right:0; top:800px; text-align:center; font-size:60px; }
+  #ending .msg2 { left:0; right:0; top:910px; text-align:center; font-size:40px; font-family:"Zen Kurenaido"; }
+
+  /* outro */
+  #outro h1 { font-family:"Mochiy Pop One"; font-size:104px; margin:0; left:0; right:0; top:64px; text-align:center; }
+  #outro h1 span { position:relative; display:inline-block; }
+  #outro h1 span::after { content:""; position:absolute; left:-10px; right:-14px; bottom:8px; height:34px; background:#f9c846; z-index:-1; border-radius:17px; transform:rotate(-.6deg); }
+  #outro .thx { left:0; right:0; top:226px; text-align:center; font-family:"Zen Kurenaido"; font-size:44px; }
+  #outro .board { left:200px; top:330px; width:1520px; height:560px; padding:34px 60px; --hl:#ffc9c2; }
+  #outro .board .tag { color:#fff; background:#f2665b; font-size:44px; padding:0 26px 6px; border-radius:8px 26px 8px 26px; transform:rotate(-3deg); display:inline-block; }
+  #outro .board .lead { font-size:46px; margin-left:26px; }
+  #outro .board .hl { font-family:"Mochiy Pop One"; font-size:74px; line-height:1.25; margin-top:16px; text-align:center; }
+  #outro .board .hl b { color:#f2665b; font-weight:normal; }
+  #outro .role { position:absolute; height:210px; top:300px; display:flex; align-items:center; gap:26px; padding:0 34px; font-size:50px; line-height:1.2; }
+  #outro .role small { display:block; font-family:"Zen Kurenaido"; font-size:34px; margin-top:6px; }
+  #outro .bye { left:0; right:0; top:930px; text-align:center; font-size:60px; }
+  #outro .credit { left:0; right:0; top:1024px; text-align:center; font-size:26px; color:#8a7c66; }
+</style>
+
+<section id="opening"></section>
+<section id="chapter" class="chap"></section>
+<section id="recap" class="recap"></section>
+<section id="ending"></section>
+<section id="outro"></section>
+
+<script src="rough.js"></script><script src="doodle.js"></script><script src="episode.js"></script><script src="icons.js"></script>
+<script>
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const id = q.id || "opening", CH = EP.chapters, ch = CH[(+q.ch || 1) - 1], pal = PAL[ch.color];
+  const ND = +q.nd || 8;  // ナレーションの長さ(秒)。出現タイミングをこれに合わせる
+  const el = document.getElementById(id);
+  el.classList.add("on");
+  // 顔アイコン。発表者がいない章(議題だけの章)は、飾りの先頭のイラストで代用する
+  const faceOf = (c) => (c.face && c.face.length ? c.face : [(c.deco && c.deco[0]) || "mic"]);
+  const face = (c, s, extra) => `<i ${extra || ""} data-ico="${faceOf(c)[0]}" data-s="${s}" data-a="${faceOf(c).slice(1).join(",")}"></i>`;
+  const who = (c, style) => (c.who ? `<span class="who" style="background:${PAL[c.color].hex};${style || ""}">${c.who}</span>` : "");
+  const s1 = (x) => x.toFixed(2) + "s";
+  // 長い題名は1行に収まるよう文字を小さくする(半角は 0.55 字として数える)
+  const fit = (text, max, width) => Math.max(40, Math.min(max, Math.floor(width / [...String(text).replace(/<[^>]+>/g, "")].reduce((n, c) => n + (c.charCodeAt(0) < 0x2000 ? 0.55 : 1), 0))));
+
+  if (id === "opening") {
+    const n = CH.length, gap = 80, w = Math.min(500, Math.floor((1920 - 260 - gap * (n - 1)) / n)), x0 = (1920 - (w * n + gap * (n - 1))) / 2;
+    el.innerHTML = `
+      <i class="abs wig" data-ico="mic" data-s="170" style="left:70px;top:90px;--r:-8deg"></i>
+      <h1 class="abs left">${EP.label} <b>${EP.number}</b></h1>
+      <span class="abs dg pop" style="left:1330px;top:150px;--d:.5s;--r:-4deg">${EP.badge}</span>
+      <div class="abs k up" style="left:258px;top:318px;font-size:46px;--d:.8s">${[EP.series, EP.date].filter(Boolean).join(" / ")}</div>` +
+      CH.map((c, i) => `
+      <div class="abs tile pop" data-box="#fffaf3,${c.color}" data-sw="5" data-r="30" style="width:${w}px;left:${x0 + i * (w + gap)}px;top:${560 + (i % 2) * 24}px;--d:${s1(ND * (0.18 + 0.125 * i))};--r:${[-2, 1.5, -1, 2][i % 4]}deg">
+        <span class="n" style="color:${PAL[c.color].hex}">${c.n}</span>
+        <div>${face(c, 150)}</div>
+        ${who(c)}
+        <div class="t">${c.title}</div>
+      </div>`).join("") +
+      (EP.opening_bubble ? `<span class="abs pop" data-box="white" data-sw="4" data-r="30" style="left:1500px;top:262px;font-size:44px;padding:8px 30px;white-space:nowrap;--d:${s1(ND * 0.6)};--r:4deg"><span>${EP.opening_bubble}</span></span>` : "");
+  }
+  if (id === "chapter") {
+    const deco = (ch.deco || []).slice(0, 4).map((n, i) => `<i class="abs wig" data-ico="${n}" data-s="${[190, 170, 180, 160][i]}" style="left:${[1180, 1460, 1640, 1330][i]}px;top:${[90, 60, 700, 790][i]}px;--d:${1.0 + i * 0.25}s;--r:${[-6, 5, -4, 6][i]}deg"></i>`).join("");
+    el.innerHTML = `
+      <div class="abs band" style="background:${pal.tint}"></div>
+      <div class="abs num pop" style="color:${pal.hex};--r:-6deg">${ch.n}</div>
+      ${face(ch, 330, 'class="abs pop" style="left:300px;top:330px;--d:.25s"')}
+      ${ch.who ? `<span class="abs who left" style="background:${pal.hex};--d:.5s">${ch.who}</span>` : ""}
+      <div class="abs ttl left" style="font-size:${fit(ch.title, 104, 1160)}px;--d:.7s">${ch.title}</div>
+      <div class="abs sub up" style="--d:1.0s">${ch.sub_card || ch.sub || ""}</div>${deco}`;
+  }
+  if (id === "recap") {
+    const step = Math.max(1.6, ND * 0.28);
+    el.innerHTML = `
+      <div class="abs hd left">${face(ch, 120)}<span class="tag" style="background:${pal.hex}">${ch.recap_title || (ch.who ? ch.who + "の話 ここがポイント" : "ここがポイント")}</span></div>` +
+      (ch.recap || []).slice(0, 3).map((r, i) => `
+      <div class="abs pt up" data-box="#fffaf3,${ch.color}" data-sw="5" data-r="26" style="top:${240 + i * 270}px;--d:${s1(0.5 + i * step)};--hl:${pal.tint}">
+        <span class="n" style="color:${pal.hex}">${i + 1}</span>
+        <i data-ico="${r.icon}" data-s="150"></i>
+        <div class="tx">${r.text.replace("<mark>", `<mark style="--d:${s1(1.1 + i * step)}">`)}<small>${r.sub || ""}</small></div>
+      </div>`).join("");
+  }
+  if (id === "ending") {
+    const e = EP.ending || {}, deco = e.deco || ["mic"];
+    el.innerHTML = `
+      <div class="abs img pop" style="--r0:0deg"><img src="${q.img || ""}"></div>
+      <div class="abs msg up" style="--d:.8s">${(e.message || "").replace("<mark>", `<mark style="--d:1.6s">`)}</div>
+      <div class="abs msg2 up" style="--d:2.2s">${e.sub || ""}</div>` +
+      deco.slice(0, 4).map((n, i) => `<i class="abs wig" data-ico="${n}" data-s="${[130, 120, 110, 120][i]}" style="left:${[120, 1500, 1650, 280][i]}px;top:${[800, 790, 860, 880][i]}px;--d:${1.2 + i * 0.3}s;--r:${[-10, 0, 0, 0][i]}deg"></i>`).join("");
+  }
+  if (id === "outro") {
+    const o = EP.outro || {}, b = o.board, roles = (b && b.roles) || [], rw = roles.length > 1 ? 650 : 900;
+    const rx = roles.length > 1 ? [70, 800] : [310];
+    const deco = o.deco || ["mic"];
+    el.innerHTML = `
+      <i class="abs wig" data-ico="${deco[0]}" data-s="150" style="left:150px;top:60px;--d:.3s;--r:-10deg"></i>
+      <h1 class="abs pop" style="--r0:0deg"><span>${o.headline || ""}</span></h1>
+      <div class="abs thx k up" style="--d:.7s">${o.thanks || ""}</div>` +
+      (b ? `
+      <div class="abs board pop" data-box="#fff3cf,#2b2622" data-sw="5" data-r="34" style="--d:${s1(ND * 0.28)};--r:-1deg;--r0:-4deg">
+        <div><span class="tag">${b.tag || ""}</span><span class="lead">${b.lead || ""}</span></div>
+        <div class="hl">${b.text || ""}</div>` +
+        roles.slice(0, 2).map((r, i) => `
+        <div class="role pop" data-box="white,${r.color || ["coral", "teal"][i]}" data-sw="4" data-r="24" style="width:${rw}px;left:${rx[i]}px;--d:${s1(ND * (0.57 + 0.12 * i))}">
+          <i data-ico="${r.icon}" data-s="130"></i><div>${r.name}<small>${r.sub || ""}</small></div>
+        </div>`).join("") + `
+      </div>` : "") + `
+      <div class="abs bye up" style="${b ? "" : "top:520px;font-size:92px;"}--d:${s1(ND * 0.9)}">${(o.bye || "").replace("<mark>", `<mark style="--d:${s1(ND * 0.9 + 0.6)}">`)}</div>
+      ${EP.credit ? `<div class="abs credit k">${EP.credit}</div>` : ""}` +
+      deco.slice(1, 4).map((n, i) => `<i class="abs wig" data-ico="${n}" data-s="${[120, 110, 130][i]}" style="left:${[1640, 60, 1700][i]}px;top:${[70, 900, 900][i]}px;--d:${s1(i ? ND * 0.9 + 0.2 * i : 0.9)};--r:${[6, 0, 0][i]}deg"></i>`).join("");
+  }
+
+  document.fonts.ready.then(() => Promise.all(["Yusei Magic", "Zen Kurenaido", "Mochiy Pop One", "Zen Maru Gothic"].map((f) => document.fonts.load(`16px "${f}"`, "あ")))).then(async () => {
+    mountIcons(); mountBoxes();
+    await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
+    const anims = document.getAnimations();
+    anims.forEach((a) => a.pause());
+    window.seek = (ms) => anims.forEach((a) => (a.currentTime = ms));
+    // 一度きりのアニメーションが終わる時刻(wig/kb は除く)
+    window.END = Math.max(0, ...anims.filter((a) => a.effect.getComputedTiming().iterations === 1 && a.animationName !== "kb").map((a) => a.effect.getComputedTiming().endTime));
+    seek(0);
+    window.READY = true;
+  });
+</script>
+</html>

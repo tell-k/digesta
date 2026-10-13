@@ -1,0 +1,346 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>Tech Lunch #12 グラレコ</title>
+<link rel="stylesheet" href="lib/fonts.css">
+<style>
+  :root { --ink:#2b2622; --paper:#fdf7e8; --coral:#f2665b; --mag:#d6338a; --org:#ee8a1c; --teal:#2bb3a3; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body {
+    width:1840px; height:1035px; overflow:hidden; color:var(--ink);
+    background:var(--paper);
+    background-image:radial-gradient(rgba(120,100,60,.13) 1px, transparent 1.2px);
+    background-size:18px 18px;
+    font-family:"Klee One"; font-size:15.5px; line-height:1.42;
+  }
+  .y { font-family:"Yusei Magic"; }
+  .k { font-family:"Zen Kurenaido"; }
+  header { position:absolute; left:28px; top:12px; right:28px; height:96px; display:flex; align-items:center; gap:22px; }
+  h1 { font-family:"Mochiy Pop One"; font-size:50px; margin:0; letter-spacing:1px; white-space:nowrap; position:relative; }
+  h1 b { color:var(--coral); font-weight:normal; }
+  h1::after { content:""; position:absolute; left:-4px; right:-6px; bottom:4px; height:16px; background:#f9c846; z-index:-1; border-radius:8px; transform:rotate(-.6deg); }
+  .meta { font-family:"Yusei Magic"; font-size:19px; line-height:1.35; }
+  .meta small { font-family:"Zen Kurenaido"; font-size:17px; }
+  .three { margin-left:auto; display:flex; align-items:center; gap:12px; font-family:"Yusei Magic"; font-size:18px; }
+  .three .pill { padding:5px 14px; white-space:nowrap; }
+  .three .n { font-family:"Mochiy Pop One"; font-size:15px; margin-right:6px; }
+
+  main { position:absolute; left:26px; right:26px; top:116px; bottom:16px; display:grid; grid-template-columns:1fr 1.06fr 1fr; gap:26px; }
+  .col { position:relative; padding:12px 16px 12px; display:flex; flex-direction:column; gap:6px; justify-content:space-between; }
+  .col > * { position:relative; z-index:1; }
+  .col > svg:first-child { z-index:0; }
+  .hd { display:flex; align-items:center; gap:12px; margin-bottom:1px; }
+  .hd .who { font-family:"Yusei Magic"; font-size:17px; color:#fff; padding:1px 12px; border-radius:14px; display:inline-block; }
+  .hd .ttl { font-family:"Yusei Magic"; font-size:27px; line-height:1.15; margin-top:3px; }
+  .hd .sub { font-family:"Zen Kurenaido"; font-size:16px; }
+  .c1 .who, .c1 .tag { background:var(--coral); } .c2 .who, .c2 .tag { background:var(--mag); } .c3 .who, .c3 .tag { background:var(--org); }
+  .tag { font-family:"Yusei Magic"; color:#fff; font-size:16.5px; padding:0 11px 1px; border-radius:4px 12px 4px 12px; display:inline-block; transform:rotate(-1.5deg); white-space:nowrap; }
+  .row { display:flex; gap:10px; align-items:center; }
+  .top { align-items:flex-start; }
+  .grow { flex:1; min-width:0; }
+  .chip { display:inline-block; padding:1px 10px; margin:2px 3px 2px 0; font-family:"Yusei Magic"; font-size:15.5px; white-space:nowrap; }
+  .chip > span, .bub > span, .pill > span, .card > div, .card > span { position:relative; z-index:1; }
+  .big { font-family:"Yusei Magic"; font-size:21px; line-height:1.25; }
+  .xl { font-family:"Mochiy Pop One"; font-size:25px; line-height:1.1; }
+  .c1 .xl, .c1 em { color:var(--coral); } .c2 .xl, .c2 em { color:var(--mag); } .c3 .xl, .c3 em { color:#d9720a; }
+  em { font-style:normal; font-family:"Yusei Magic"; }
+  mark { background:linear-gradient(transparent 52%, var(--hl) 52%, var(--hl) 94%, transparent 94%); color:inherit; padding:0 2px; }
+  .c1 { --hl:#ffc9c2; } .c2 { --hl:#f7c3e3; } .c3 { --hl:#ffe08a; }
+  .bub { display:inline-block; padding:4px 12px; font-family:"Yusei Magic"; font-size:15.5px; line-height:1.3; }
+  .note { font-family:"Zen Kurenaido"; font-size:15.5px; line-height:1.3; }
+  .card { padding:6px 10px; }
+  .ico { flex:none; }
+  .ar { font-family:"Yusei Magic"; font-size:22px; flex:none; }
+  .c1 .ar { color:var(--coral); } .c2 .ar { color:var(--mag); } .c3 .ar { color:var(--org); }
+  .step { flex:1; text-align:center; font-size:14px; line-height:1.3; }
+  .step b { font-family:"Yusei Magic"; font-weight:normal; font-size:16px; display:block; }
+  .qa { font-family:"Yusei Magic"; font-size:14.5px; color:#fff; background:var(--ink); border-radius:50%; width:25px; height:25px; display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  ul { margin:0; padding-left:1.1em; } li { margin:0; }
+  .route { position:relative; height:136px; }
+  .stop { position:absolute; text-align:center; font-family:"Yusei Magic"; font-size:16px; line-height:1.15; transform:translateX(-50%); white-space:nowrap; }
+  .stop small { display:block; font-family:"Zen Kurenaido"; font-size:13.5px; }
+  .stop .d { width:15px; height:15px; border-radius:50%; background:#fff; border:3px solid var(--ink); margin:0 auto 2px; }
+  .stop.ev .d { background:var(--org); width:19px; height:19px; }
+  .leg { position:absolute; transform:translateX(-50%); }
+  footer { position:absolute; right:30px; bottom:3px; font-family:"Zen Kurenaido"; font-size:12.5px; color:#8a7c66; }
+</style>
+
+
+<header>
+  <i data-ico="mic" data-s="78" data-rot="-8"></i>
+  <h1>Tech Lunch <b>#12</b></h1>
+  <div class="meta">サンプル株式会社 社内勉強会<br><small>2026.9.3(木)17:00〜 / オンライン / 参加 約10名</small></div>
+  <span class="bub k" data-box="white" style="margin-left:26px; font-size:16px; font-family:'Zen Kurenaido'"><span>これ1枚で<br>#12 はバッチリ!</span></span>
+  <div class="three">
+    <span>今回は3本立て!</span>
+    <span class="pill" data-box="pink"><span><span class="n">1</span>ミナトさん</span></span>
+    <span class="pill" data-box="#f7c3e3"><span><span class="n">2</span>ソラさん</span></span>
+    <span class="pill" data-box="#ffe08a"><span><span class="n">3</span>リクさん</span></span>
+  </div>
+</header>
+
+<main>
+  <!-- ============ 1. ミナトさん ============ -->
+  <section class="col c1" data-box="#fffaf3,coral" data-sw="3" data-r="22">
+    <div class="hd">
+      <i data-ico="face" data-s="74" data-a="brown,coral,bob"></i>
+      <div>
+        <span class="who">ミナトさん</span> <span class="sub">はじめまして枠(新メンバー紹介)</span>
+        <div class="ttl">自己紹介的なアレ</div>
+      </div>
+    </div>
+
+    <div class="row top">
+      <i data-ico="tablet" data-s="70"></i>
+      <div class="grow">
+        <span class="tag">ふだんのお仕事</span>
+        <div class="big"><mark>モバイルアプリ</mark>の QA</div>
+        <div>テスト端末は<em>約30台</em>(全部実機!)</div>
+        <div>
+          <span class="chip" data-box="white,coral" data-sw="1.8"><span>iOS</span></span>
+          <span class="chip" data-box="white,coral" data-sw="1.8"><span>Android</span></span>
+          <span class="chip" data-box="white,coral" data-sw="1.8"><span>リリース前チェック</span></span>
+        </div>
+      </div>
+      <i data-ico="checklist" data-s="66"></i>
+    </div>
+    <div class="note" style="margin-top:-6px">チェックリストを上から順に、全部の端末で確かめる。<br>古い OS の端末は、充電を切らさないのが地味に大変</div>
+
+    <div class="row">
+      <span class="tag">たぶんこんな人</span>
+      <div class="grow">
+        <span class="chip" data-box="pink,none"><span>几帳面</span></span>
+        <span class="chip" data-box="pink,none"><span>細かいところが気になる</span></span>
+      </div>
+    </div>
+    <div class="row" style="margin-top:-5px">
+      <span class="bub" data-box="white"><span>「、」と「,」の混在、すぐ気づきます</span></span>
+      <span class="note">だから QA は<br>向いてるかも</span>
+    </div>
+
+    <div class="row top">
+      <div style="flex:1.05">
+        <span class="tag">好きなもの</span>
+        <div class="row" style="margin-top:4px">
+          <i data-ico="kitchen" data-s="56"></i>
+          <div><em>パン作り</em><br><span class="note">こねてる時間は無心になれる</span></div>
+        </div>
+        <div class="row">
+          <i data-ico="book" data-s="52"></i>
+          <div><em>SF 小説</em><br><span class="note">寝る前に少しずつ</span></div>
+        </div>
+      </div>
+      <div style="flex:1">
+        <div class="row" style="margin-top:20px">
+          <i data-ico="pizza" data-s="54"></i>
+          <div>同じ生地で<br><mark>ピザも焼ける</mark></div>
+        </div>
+        <div class="row">
+          <i data-ico="clock" data-s="54"></i>
+          <div><mark>朝6時</mark>に起きて<br>出勤前にパンを焼く</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" data-box="white,coral" data-sw="2.4" style="margin-top:4px">
+      <div class="row"><span class="tag">この夏の挑戦</span><span class="xl">天然酵母</span><span class="note">(3度目の正直)</span></div>
+      <div class="row" style="margin-top:4px; gap:4px">
+        <div class="step"><i data-ico="warning" data-s="60"></i><b>①1回目</b>カビて全部捨てた</div>
+        <span class="ar">→</span>
+        <div class="step"><i data-ico="clock" data-s="60" data-seed="41"></i><b>②2回目</b>暑くて発酵しすぎ</div>
+        <span class="ar">→</span>
+        <div class="step"><i data-ico="check" data-s="60"></i><b>③3回目</b>冷蔵庫と常温を往復</div>
+      </div>
+      <div class="row" style="justify-content:center; margin-top:2px">
+        <i data-ico="kitchen" data-s="64" data-seed="58"></i>
+        <div><div class="xl">ぷくぷくふくらんだ!</div><div class="big">その酵母で<mark>食パン</mark>が焼けました</div></div>
+      </div>
+    </div>
+
+    <div class="row" style="margin-top:2px">
+      <span class="qa">Q</span>
+      <div class="grow"><span>1回に何斤焼くの?</span><br><span class="note">食パン型が1つなので1斤。<mark>週に2回</mark>くらい</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 2. ソラさん ============ -->
+  <section class="col c2" data-box="#fffaf3,magenta" data-sw="3" data-r="22">
+    <div class="hd">
+      <i data-ico="face" data-s="74" data-a="#3a2a20,magenta,short"></i>
+      <div class="grow">
+        <span class="who">ソラさん</span> <span class="sub">PostgreSQL 16 の例で</span>
+        <div class="ttl">SQL の実行計画を読もう</div>
+        <div class="y" style="font-size:15.5px;line-height:1.25">EXPLAIN で<br>遅い SQL の原因を探す</div>
+      </div>
+      <div style="text-align:center"><i data-ico="clock" data-s="62"></i><div class="note" style="margin-top:-6px">遅い…</div></div>
+    </div>
+
+    <div class="row top">
+      <i data-ico="browser" data-s="70"></i>
+      <div class="grow">
+        <span class="tag">課題</span>
+        <div><em>注文一覧画面</em>の表示に<mark>3.2秒</mark>かかる</div>
+        <div class="big">でも原因は、画面を見ても<mark>わからない</mark></div>
+      </div>
+      <span class="bub" data-box="white"><span>どこが<br>遅いの…?</span></span>
+    </div>
+
+    <div class="row top">
+      <div class="grow">
+        <span class="tag">道具</span>
+        <div class="big" style="margin-top:2px">DB が SQL を<mark>どう実行したか</mark>を見る</div>
+        <div>
+          <span class="chip" data-box="white,magenta" data-sw="1.8"><span>EXPLAIN</span></span> = 実行計画を表示
+        </div>
+        <div>
+          <span class="chip" data-box="white,magenta" data-sw="1.8"><span>EXPLAIN ANALYZE</span></span> = 実際に実行して<em>実測</em>も
+        </div>
+      </div>
+      <i data-ico="docs" data-s="62"></i>
+      <i data-ico="chart" data-s="96"></i>
+    </div>
+
+    <div class="row">
+      <div class="card grow" data-box="#f7c3e3,none" data-rough="1.6">
+        <div><em>見るところは</em><br><span class="xl">3つだけ</span></div>
+        <div class="note">時間(actual time)<br>推定と実際の行数(rows)<br>繰り返し回数(loops)</div>
+      </div>
+      <div class="card" style="flex:.9" data-box="white,#8a7c66" data-sw="1.6">
+        <div class="note"><b class="y">推定と実際がずれていたら</b>統計情報が古いかも。<mark>ANALYZE</mark> で更新する</div>
+      </div>
+    </div>
+
+    <div class="card" data-box="white,magenta" data-sw="2.4" style="margin-top:4px">
+      <div class="row top">
+        <i data-ico="target" data-s="80"></i>
+        <div class="grow">
+          <div class="row"><span class="tag">改善</span><span class="xl">3.2秒 → 40ms!</span></div>
+          <div style="margin-top:3px">orders 約120万行を <em>Seq Scan</em>(全件の読み込み)していた</div>
+          <div class="note">(user_id, created_at) の複合インデックスを作成</div>
+          <div class="row" style="margin-top:2px"><span>Seq Scan</span><span class="ar">→</span><span class="bub" data-box="#f7c3e3,none"><span>Index Scan に変わった</span></span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <i data-ico="warning" data-s="70"></i>
+      <div class="grow">
+        <span class="tag">注意</span>
+        <div>EXPLAIN ANALYZE は<mark>本当に実行する</mark></div>
+        <div class="note">UPDATE や DELETE は BEGIN と ROLLBACK で挟む</div>
+      </div>
+    </div>
+
+    <div class="row top" style="gap:8px">
+      <span class="qa">Q</span>
+      <div class="grow">
+        <div class="row" style="gap:6px"><span>インデックスは多いほどいい?</span><span class="ar">→</span><span class="bub" data-box="white"><span>作りすぎると書き込みが遅い</span></span></div>
+        <div class="note" style="margin-top:3px">使われていないものは pg_stat_user_indexes で探せる</div>
+      </div>
+    </div>
+    <div class="row" style="gap:8px">
+      <span class="qa">Q</span>
+      <div class="grow note">ORM だと SQL が見えないのでは?<br>→ 開発環境で SQL をログに出して、EXPLAIN に貼る</div>
+    </div>
+  </section>
+
+  <!-- ============ 3. リクさん ============ -->
+  <section class="col c3" data-box="#fffaf3,orange" data-sw="3" data-r="22">
+    <div class="hd">
+      <i data-ico="sloth" data-s="74"></i>
+      <div>
+        <span class="who">リクさん</span> <span class="sub">2026年8月、2日で約180km</span>
+        <div class="ttl">自転車でカンファレンスへ</div>
+        <div class="y" style="font-size:16px;line-height:1.2">〜東京から静岡まで 180km〜</div>
+      </div>
+    </div>
+
+    <div class="note" style="margin-top:-4px">運動不足の解消も兼ねて、前から気になっていた<br>→「静岡のカンファレンスに<mark>自転車で行こう</mark>」</div>
+    <div class="route">
+      <svg width="510" height="128" style="position:absolute;left:0;top:0;overflow:visible" data-pts="30,62 140,56 262,66 372,56 480,62" data-c="orange" data-sw="3.4" data-head="0"></svg>
+      <div class="stop" style="left:30px;top:53px"><div class="d"></div>東京<small>日本橋 8/20</small></div>
+      <div class="stop" style="left:146px;top:47px"><div class="d"></div>小田原<small>1泊</small></div>
+      <div class="stop ev" style="left:264px;top:57px"><div class="d"></div>箱根峠<small>最大の難所<br>8/21 早朝</small></div>
+      <div class="stop" style="left:372px;top:49px"><div class="d"></div>沼津<small>8/21 昼</small></div>
+      <div class="stop ev" style="left:470px;top:51px"><div class="d"></div>静岡<small>カンファレンス<br>8/22</small></div>
+      <i class="leg" data-ico="backpack" data-s="50" style="left:86px;top:4px"></i>
+      <i class="leg" data-ico="clock" data-s="48" style="left:204px;top:4px"></i>
+      <i class="leg" data-ico="map" data-s="54" style="left:318px;top:0px"></i>
+      <i class="leg" data-ico="flag" data-s="50" style="left:424px;top:2px"></i>
+    </div>
+
+    <div class="card" data-box="white,orange" data-sw="2.2">
+      <div class="row top">
+        <i data-ico="backpack" data-s="76" data-seed="23"></i>
+        <div class="grow">
+          <div class="row"><span class="tag">工夫①</span><span class="xl">荷物は 7kg</span></div>
+          <div style="margin-top:3px">バックパック1つ。<em>着替えは2日分</em>だけ</div>
+          <div>あとは宿の<mark>コインランドリー</mark>で洗う</div>
+          <span class="bub" data-box="#ffe08a,none"><span>軽いと、上りがぜんぜん違う</span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="row">
+      <i data-ico="building" data-s="56"></i>
+      <div class="grow"><span class="tag" style="background:var(--teal)">気づき</span> <em style="color:var(--teal)">会場に駐輪場がない!</em><br><span class="note">近くの有料駐輪場に停めた。事前に問い合わせればよかった</span></div>
+    </div>
+
+    <div class="row top" style="gap:12px">
+      <div class="card grow" data-box="white,orange" data-sw="2.2">
+        <div class="row"><span class="tag">誤算①</span><i data-ico="warning" data-s="44"></i><i data-ico="map" data-s="52" data-seed="31"></i></div>
+        <div class="big">箱根峠は<mark>押して歩いた</mark></div>
+        <div class="note">最後の約1時間、ずっと上り</div>
+      </div>
+      <div class="card grow" data-box="white,orange" data-sw="2.2">
+        <div class="row"><span class="tag">工夫②</span><i data-ico="clock" data-s="52" data-seed="19"></i></div>
+        <div class="big"><mark>朝5時に出発</mark></div>
+        <div class="note">日中の暑さを避けて峠へ</div>
+      </div>
+    </div>
+
+    <div class="row">
+      <i data-ico="train" data-s="56"></i>
+      <div class="grow">帰りは<em>輪行</em>(自転車を袋に入れて電車へ)<br><span class="ar">→</span> 8/23 に<mark>新幹線で東京へ</mark></div>
+      <i data-ico="flag" data-s="54" data-seed="63"></i>
+    </div>
+
+    <div class="card" data-box="#ffe08a,none" data-rough="1.6">
+      <div class="row top">
+        <div class="grow">
+          <span class="tag">まとめ</span>
+          <ul class="y" style="font-size:16.5px; margin-top:3px">
+            <li>荷物は<em>最小限</em>にしよう</li>
+            <li>峠は<em>涼しい朝のうち</em>に越えよう</li>
+            <li>会場の駐輪場は事前に確認しよう</li>
+          </ul>
+        </div>
+        <span class="bub" data-box="white" style="margin-top:14px"><span>楽しかったけど、<br>1日目は筋肉痛…</span></span>
+      </div>
+    </div>
+
+    <div class="row" style="gap:6px">
+      <span class="qa">Q</span>
+      <div class="grow"><span>雨が降ったら?</span><br><span class="note">その区間だけ<mark>輪行で電車</mark>に乗る予定<br>(輪行はカイさんに教わった)</span></div>
+      <i data-ico="warning" data-s="46" data-seed="88"></i><span class="ar">→</span><i data-ico="train" data-s="52" data-seed="91"></i>
+    </div>
+  </section>
+</main>
+
+
+<script src="lib/rough.js"></script>
+<script src="lib/doodle.js"></script>
+<script src="lib/icons.js"></script>
+<script>
+  document.fonts.ready.then(() => Promise.all(["Yusei Magic", "Klee One", "Zen Kurenaido", "Mochiy Pop One"].map((f) => document.fonts.load(`16px "${f}"`, "あ")))).then(() => {
+    mountIcons(); mountBoxes(); mountArrows();
+    // はみ出し検出
+    document.querySelectorAll(".col").forEach((c, i) => {
+      const last = c.lastElementChild.getBoundingClientRect().bottom, box = c.getBoundingClientRect().bottom;
+      console.log("col", i + 1, "余白(px):", Math.round(box - last));
+    });
+    window.READY = true;
+  });
+</script>
+</html>

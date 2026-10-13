@@ -1,0 +1,43 @@
+# 動画の情報。カード(オープニング・章タイトル・まとめ・締め)と本編の枠がここから文言を読む。
+label: ◯◯定例                # 動画のタイトル
+number: ''                   # 回数など(例 '#12')。なければ空
+series: ''                   # タイトルの下に出す1行(例 ◯◯チーム 週次ミーティング)。なければ空
+date: 2026.1.1(木)
+badge: ダイジェスト
+opening_bubble: 5分でふりかえり!
+
+# 章 = 発表または議題。2〜4個が収まりやすい
+chapters:
+  - title: 発表タイトルまたは議題名
+    who: ◯◯さん                      # 発表者や担当。議題だけの章なら、この行と face を消す
+    # short: 短い名前                # who がないとき、画面右上の進行表示に出す短い名前
+    sub: 副題
+    # sub_card: 章タイトルカードだけ改行を入れたいときに <br> 付きで書く
+    color: coral                        # coral / magenta / orange / teal / blue / purple / green
+    face: [face, brown, coral, long]    # 顔アイコン。face は [face, 髪の色, 服の色, 髪型(long/bob/short)]
+    deco: [mic]                         # 章タイトルカードの飾り(最大4個)
+    crop: '1440:810:0:135'              # 録画のうちスライドが映る領域 幅:高さ:左:上(grid コマンドで調べる)。消すと画面全体を使う
+    recap:                              # まとめカード(3項目まで)。<mark> は蛍光ペン
+      - icon: mic
+        text: ポイントを<mark>ひとこと</mark>で
+        sub: 補足
+
+# エンディング: グラレコ全景を見せるカード(グラレコ画像があるときだけ入る)
+ending:
+  message: グラレコ1枚でも<mark>ふりかえれます</mark>
+  sub: じっくり見たい人は画像でどうぞ
+  deco: [mic]
+
+# 締めカード
+outro:
+  headline: ダイジェストはここまで!
+  thanks: 最後まで見てくれてありがとうございました
+  # board: 告知や次のアクションを見せたいときだけ書く(なければ board ごと消す)
+  #   tag: お知らせ
+  #   lead: 次回は…
+  #   text: <b>1月8日(木)</b>に開催します
+  #   roles:                           # 2つまで。なくてもよい
+  #     - {icon: calendar, name: 日時, sub: 10:00〜11:00, color: coral}
+  #     - {icon: note, name: 議題, sub: 来期の計画, color: teal}
+  bye: それでは、<mark>また次回!</mark>
+  deco: [mic]

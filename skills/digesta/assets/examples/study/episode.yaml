@@ -1,0 +1,83 @@
+# 回の情報。カード(オープニング・章タイトル・まとめ・締め)と本編の枠がここから文言を読む。
+label: Tech Lunch
+number: '#12'
+series: サンプル株式会社 社内勉強会
+date: 2026.9.3(木)
+badge: ダイジェスト
+opening_bubble: 5分でふりかえり!
+
+chapters:
+  - who: ミナトさん
+    title: 自己紹介的なアレ
+    sub: はじめまして枠(新メンバー紹介)
+    color: coral                        # coral / magenta / orange / teal / blue / purple / green
+    face: [face, brown, coral, bob]     # 顔アイコン。face は [face, 髪の色, 服の色, 髪型(long/bob/short)]
+    deco: [tablet, checklist, kitchen, book]   # 章タイトルカードの飾り(最大4個)
+    crop: '1076:606:244:298'            # 元動画のスライド領域 幅:高さ:左:上(grid コマンドで調べる)
+    recap:                              # まとめカード(3項目まで)。<mark> は蛍光ペン
+      - icon: tablet
+        text: モバイルアプリの <mark>QA</mark>。テスト端末は約30台
+        sub: 細かいところ、すぐ気づきます
+      - icon: kitchen
+        text: 朝6時に起きて<mark>パンを焼く</mark>
+        sub: 同じ生地でピザも
+      - icon: check
+        text: 天然酵母、<mark>3回目でふくらんだ</mark>
+        sub: カビ → 発酵しすぎ → 成功
+
+  - who: ソラさん
+    title: SQL の実行計画を読もう
+    sub: EXPLAIN で遅い SQL の原因を探す
+    sub_card: EXPLAIN で<br>遅い SQL の原因を探す   # 章タイトルカード用(改行を入れたいとき)
+    color: magenta
+    face: [face, '#3a2a20', magenta, short]
+    deco: [docs, chart, clock, target]
+    crop: '1440:810:0:135'
+    recap:
+      - icon: docs
+        text: 見るのは<mark>時間・行数・回数</mark>の3つ
+        sub: actual time / rows / loops
+      - icon: target
+        text: 複合インデックスで<mark><span class="gothic">3.2</span>秒 → 40ms</mark>
+        sub: Seq Scan が Index Scan に
+      - icon: warning
+        text: EXPLAIN ANALYZE は<mark>本当に実行</mark>する
+        sub: 更新系は BEGIN と ROLLBACK で挟む
+
+  - who: リクさん
+    title: 自転車でカンファレンスへ
+    sub: 〜東京から静岡まで 180km〜
+    color: orange
+    face: [sloth]
+    deco: [map, backpack, flag, train]
+    crop: '1398:830:42:162'
+    recap:
+      - icon: backpack
+        text: 荷物は<mark>バックパック1つ</mark>、約7kg
+        sub: 着替えは2日分、あとは洗う
+      - icon: clock
+        text: 峠は<mark>涼しい朝のうちに</mark>越える
+        sub: 最後の1時間は押して歩いた
+      - icon: train
+        text: 帰りと雨の日は<mark>輪行</mark>で電車に
+        sub: 次は現地だけ走りたい
+
+# エンディング: グラレコ全景を見せるカード(グラレコ画像があるときだけ入る)
+ending:
+  message: グラレコ1枚でも<mark>ふりかえれます</mark>
+  sub: じっくり見たい人は画像でどうぞ
+  deco: [mic, kitchen, chart, map]
+
+# 締めカード
+outro:
+  headline: ダイジェストはここまで!
+  thanks: 'Tech Lunch #12 / 最後まで見てくれてありがとうございました'   # 「 #」や「: 」を含む値は引用符で囲む(YAML のコメントや区切りと解釈されるため)
+  board:
+    tag: 募集中!
+    lead: Tech Lunch では…
+    text: <b>発表者</b>と<b>司会</b>を募集しています
+    roles:
+      - {icon: laptop, name: 発表者, sub: 話したいネタがある人, color: coral}
+      - {icon: mic, name: 司会, sub: 進行をやってみたい人, color: teal}
+  bye: それでは、<mark>また次回!</mark>
+  deco: [mic, kitchen, chart, map]

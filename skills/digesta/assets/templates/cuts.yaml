@@ -1,0 +1,15 @@
+# カット表と字幕。時刻は元動画の秒。
+# - chapter: 章番号(episode.yaml の chapters の順)
+#   topics: 話題。title は枠の「いまの話題」に出る。icons はその横に出すイラスト(1〜2個)
+#     clips: 元動画から切り出す区間。start/end は発話の頭と語尾が切れないよう 0.1〜0.3 秒の余白を取る
+#       subs: [字幕の開始秒, 終了秒, 文]。文は整えた日本語にする。改行は \N(1行は全角28字くらいまで、2行まで)
+
+- chapter: 1
+  topics:
+    - title: '話題の題名'
+      icons: [mic]
+      clips:
+        - start: 0.0
+          end: 5.0
+          subs:
+            - [0.2, 4.8, '字幕の文']

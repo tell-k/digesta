@@ -1,0 +1,13 @@
+# business: 白地に濃紺の見出し、ゴシック体、直線の枠。人物のイラストは出さない。社内外の会議・報告向け
+name: business
+description: 白地・濃紺・ゴシック体・直線の枠。キャラクターなし、ピクトグラムは単色の線画。ビジネス会議や報告向け
+fonts:
+  BIZUDPGothic-Regular.ttf: [bizudpgothic, BIZ UDPGothic, 400]
+  BIZUDPGothic-Bold.ttf: [bizudpgothic, BIZ UDPGothic, 700]
+subtitle_font: BIZ UDPGothic Bold
+paper: 0xffffff
+bgm_prompt: >-
+  Create a 3-minute instrumental background track for a calm corporate recap video of a business meeting.
+  Minimal and unobtrusive: soft felt piano chords, light electric piano, subtle warm pad, very light brushed percussion.
+  Around 90 BPM, major key, steady and even from start to finish with no build-ups, drops or dramatic changes, so narration can sit on top.
+  Instrumental only, no vocals, no spoken words. Smooth beginning and a soft natural ending.

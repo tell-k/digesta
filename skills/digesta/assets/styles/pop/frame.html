@@ -1,0 +1,58 @@
+<!doctype html>
+<!-- pop スタイルの本編の枠(スライド部分が透明な 1920x1080)。#ch=1&topic=0 -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; background:transparent; }
+  body { width:1920px; height:1080px; overflow:hidden; color:#2b2622; font-family:"Zen Maru Gothic"; font-weight:700; position:relative; }
+  #paper { position:absolute; inset:0; background:#fff; background-image:radial-gradient(#e9e4dc 1.2px, transparent 1.4px); background-size:26px 26px;
+    clip-path:polygon(evenodd, 0 0, 1920px 0, 1920px 1080px, 0 1080px, 0 0, 44px 104px, 1388px 104px, 1388px 860px, 44px 860px, 44px 104px); }
+  #top { position:absolute; left:44px; top:14px; right:44px; height:78px; display:flex; align-items:center; gap:14px; }
+  #top h1 { font-family:"Mochiy Pop One"; font-weight:400; font-size:36px; margin:0; position:relative; z-index:1; white-space:nowrap; }
+  #top h1::after { content:""; position:absolute; left:-4px; right:-6px; bottom:2px; height:12px; background:#fff176; z-index:-1; border-radius:6px; }
+  #top .dg { color:#fff; font-size:22px; padding:1px 16px 3px; border-radius:6px 16px 6px 16px; font-family:"Mochiy Pop One"; font-weight:400; }
+  #steps { margin-left:auto; display:flex; gap:12px; font-size:21px; }
+  #steps span { padding:3px 16px; position:relative; white-space:nowrap; opacity:.5; } #steps span.on { opacity:1; }
+  #steps span > b { position:relative; z-index:1; }
+  #frame { position:absolute; left:44px; top:104px; width:1344px; height:756px; }
+  #side { position:absolute; left:1420px; top:104px; width:456px; height:756px; }
+  #side .who { color:#fff; font-size:26px; padding:1px 18px 3px; border-radius:20px; display:inline-block; }
+  #side .ttl { font-family:"Mochiy Pop One"; font-weight:400; font-size:34px; line-height:1.2; margin-top:8px; }
+  #side .sub { font-family:"Zen Kurenaido"; font-weight:400; font-size:21px; line-height:1.3; margin-top:6px; }
+  #side h3 { font-size:20px; margin:22px 0 6px; color:#8a7c66; }
+  #side ul { margin:0; padding:0; }
+  #side li { list-style:none; font-size:25px; line-height:1.25; padding:9px 12px 9px 48px; position:relative; opacity:.45; margin-bottom:6px; }
+  #side li.done { opacity:.7; } #side li.on { opacity:1; }
+  #side li > b { position:relative; z-index:1; }
+  #side li::before { content:attr(data-n); position:absolute; left:8px; top:9px; z-index:1; width:30px; height:30px; border-radius:50%; color:#fff; font-size:17px; display:flex; align-items:center; justify-content:center; background:var(--c, #999); font-family:"Mochiy Pop One"; font-weight:400; }
+  #side img.char { position:absolute; right:0; bottom:0; width:220px; height:220px; mix-blend-mode:multiply; object-fit:contain; }
+  #side .icons { position:absolute; left:0; bottom:16px; display:flex; gap:20px; }
+  #cap { position:absolute; left:44px; top:886px; width:1832px; height:172px; }
+</style>
+<div id="paper"></div>
+<div id="top"><i data-ico="mic" data-s="62" data-rot="-8"></i><h1 id="h1"></h1><span class="dg" id="dg"></span><div id="steps"></div></div>
+<div id="frame"></div><div id="side"></div>
+<div id="cap" data-box="white,#2b2622" data-sw="4" data-r="20"></div>
+<script src="rough.js"></script><script src="pop.js"></script><script src="episode.js"></script><script src="icons.js"></script>
+<script>
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const CH = EP.chapters, ch = CH[(+q.ch || 1) - 1], topic = +q.topic || 0, pal = PAL[ch.color];
+  document.getElementById("h1").innerHTML = `${EP.label} <b style="color:${pal.hex}">${EP.number || ""}</b>`;
+  const dg = document.getElementById("dg"); dg.textContent = EP.badge; dg.style.background = pal.hex;
+  document.getElementById("steps").innerHTML = CH.map((c) => `<span class="${c.n === ch.n ? "on" : ""}" data-box="${c.n === ch.n ? c.color : "white"},${c.color}" data-sw="3"><b>${c.n} ${c.short || c.who || c.title}</b></span>`).join("");
+  Object.assign(document.getElementById("frame").dataset, { box: `none,${ch.color}`, sw: 7, r: 8, rough: 0.6 });
+  const icons = ch.topics[topic].icons || [];
+  document.getElementById("side").innerHTML = `
+    ${ch.who ? `<span class="who" style="background:${pal.hex}">${ch.who}</span>` : ""}
+    <div class="ttl">${ch.title}</div><div class="sub">${ch.sub || ""}</div>
+    <h3>いまの話題</h3>
+    <ul>${ch.topics.map((t, i) => `<li data-n="${i + 1}" class="${i === topic ? "on" : i < topic ? "done" : ""}" style="--c:${pal.hex}" ${i === topic ? `data-box="${ch.color},none" data-rough="1.2"` : ""}><b>${t.title}</b></li>`).join("")}</ul>
+    <div class="icons">${icons.map((n, i) => `<i data-ico="${n}" data-s="${icons.length > 1 ? 110 : 130}" data-rot="${i ? 5 : -5}"></i>`).join("")}</div>
+    ${ch.char ? `<img class="char" src="../chars/${ch.char}.jpg" onerror="this.remove()">` : ""}`;
+  document.fonts.ready.then(() => Promise.all(["Yusei Magic", "Zen Kurenaido", "Mochiy Pop One", "Zen Maru Gothic"].map((f) => document.fonts.load(`16px "${f}"`, "あ")))).then(async () => {
+    mountIcons(); mountBoxes();
+    await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
+    window.READY = true;
+  });
+</script>
+</html>

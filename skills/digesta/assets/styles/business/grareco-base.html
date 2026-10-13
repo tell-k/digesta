@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>グラレコ</title>
+<link rel="stylesheet" href="lib/fonts.css">
+<style>
+  :root { --ink:#1f3a5f; --sub:#4a5a6a; --gray:#8a949e; --line:#dfe3e8; --acc:#2f5f9e; --warn:#b5443a; --ok:#1f7a6e;
+          --c1:#2f5f9e; --c2:#1f7a6e; --c3:#b86a1c; --t1:#dfe8f4; --t2:#dcefeb; --t3:#f8ebdc; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body { width:1840px; height:1035px; overflow:hidden; background:#fff; color:var(--ink); font-family:"BIZ UDPGothic", sans-serif; font-size:15px; line-height:1.45; }
+  b { font-weight:700; }
+  mark { background:none; color:var(--acc); font-weight:700; }
+
+  /* ヘッダー: タイトル、開催情報、参加者、アジェンダ */
+  header { position:absolute; left:28px; right:28px; top:16px; height:92px; display:flex; align-items:flex-start; gap:28px; border-bottom:3px solid var(--ink); padding-bottom:10px; }
+  h1 { margin:0; font-size:40px; line-height:1.1; white-space:nowrap; }
+  h1 b { color:var(--acc); }
+  h1 small { display:block; font-size:15px; color:var(--gray); font-weight:400; letter-spacing:.08em; margin-bottom:4px; }
+  .kv { font-size:14px; line-height:1.5; min-width:170px; }
+  .kv b { display:block; color:var(--gray); font-size:12px; letter-spacing:.08em; }
+  .agenda { margin-left:auto; display:flex; gap:6px; align-items:center; font-size:13.5px; }
+  .agenda .ag { display:flex; align-items:center; gap:6px; padding:4px 10px 4px 4px; border:1px solid var(--line); border-radius:4px; white-space:nowrap; }
+  .num { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; border-radius:4px; color:#fff; font-weight:700; font-size:14px; flex:none; }
+
+  /* 本体: 章ごとのパネル */
+  main { position:absolute; left:28px; right:28px; top:124px; bottom:150px; display:grid; grid-template-columns:1fr 1fr 1fr; gap:22px; }
+  .panel { border:1.5px solid var(--line); border-top:6px solid var(--c); border-radius:4px; padding:12px 16px; display:flex; flex-direction:column; gap:9px; --c:var(--c1); --t:var(--t1); }
+  .panel.c1 { --c:var(--c1); --t:var(--t1); } .panel.c2 { --c:var(--c2); --t:var(--t2); } .panel.c3 { --c:var(--c3); --t:var(--t3); }
+  .panel .hd { display:flex; align-items:flex-start; gap:10px; padding-bottom:8px; border-bottom:1px solid var(--line); }
+  .panel .hd .num { width:30px; height:30px; font-size:17px; background:var(--c); margin-top:2px; }
+  .panel .ttl { font-size:21px; font-weight:700; line-height:1.25; }
+  .panel .who { font-size:13px; color:var(--gray); }
+  .tag { display:inline-block; font-size:12.5px; font-weight:700; color:var(--c); border:1px solid var(--c); border-radius:3px; padding:0 8px; margin-bottom:3px; }
+  .big { font-size:17px; font-weight:700; line-height:1.3; }
+  .xl { font-size:24px; font-weight:700; color:var(--c); line-height:1.1; }
+  .note { font-size:13.5px; color:var(--sub); line-height:1.4; }
+  .row { display:flex; gap:10px; align-items:center; } .top { align-items:flex-start; } .grow { flex:1; min-width:0; }
+  .ico { flex:none; }
+  .box { border:1px solid var(--line); border-radius:4px; padding:7px 10px; }
+  .tint { background:var(--t); border-radius:4px; padding:7px 10px; }
+  .chip { display:inline-block; font-size:13px; border:1px solid var(--line); border-radius:3px; padding:0 8px; margin:2px 2px 2px 0; white-space:nowrap; }
+  .ar { color:var(--c); font-weight:700; flex:none; }
+  .steps { display:flex; align-items:center; gap:6px; }
+  .steps .st { flex:1; text-align:center; font-size:13px; line-height:1.3; border:1px solid var(--line); border-radius:4px; padding:6px 4px; }
+  .steps .st b { display:block; font-size:14px; }
+  ul.pts { margin:0; padding:0; list-style:none; } ul.pts li { padding-left:22px; position:relative; margin:2px 0; }
+  ul.pts li::before { content:"✓"; position:absolute; left:2px; color:var(--ok); font-weight:700; }
+  .qa { display:inline-flex; align-items:center; justify-content:center; width:22px; height:22px; border-radius:3px; background:var(--ink); color:#fff; font-size:12.5px; font-weight:700; flex:none; }
+  .ok { color:var(--ok); font-weight:700; } .ng { color:var(--warn); font-weight:700; }
+
+  /* 下部: 決定事項とネクストアクション */
+  footer { position:absolute; left:28px; right:28px; bottom:16px; height:122px; display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+  .foot { border:1.5px solid var(--ink); border-radius:4px; padding:10px 14px; }
+  .foot h2 { margin:0 0 6px; font-size:16px; letter-spacing:.06em; display:flex; align-items:center; gap:8px; }
+  .foot h2 .num { background:var(--ink); }
+  ol.dec { margin:0; padding-left:22px; font-size:14px; line-height:1.5; }
+  table.todo { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.todo th { text-align:left; color:var(--gray); font-weight:700; border-bottom:1px solid var(--line); padding:2px 6px; font-size:12.5px; }
+  table.todo td { padding:3px 6px; border-bottom:1px solid var(--line); }
+  table.todo td:nth-child(2), table.todo td:nth-child(3) { white-space:nowrap; color:var(--sub); }
+</style>
+
+<!-- ここから下を会議の内容で書く。部品の使い方は skill の references/grareco-guide.md を参照 -->
+<header>
+  <h1><small>MEETING NOTES</small>会議名 <b>#000</b></h1>
+  <div class="kv"><b>日時</b>2026/1/1(木) 10:00〜11:00<br>オンライン</div>
+  <div class="kv"><b>参加者</b>◯◯、◯◯、◯◯</div>
+  <div class="agenda">
+    <div class="ag"><span class="num" style="background:var(--c1)">1</span>議題1</div>
+    <div class="ag"><span class="num" style="background:var(--c2)">2</span>議題2</div>
+    <div class="ag"><span class="num" style="background:var(--c3)">3</span>議題3</div>
+  </div>
+</header>
+
+<main>
+  <section class="panel c1">
+    <div class="hd"><span class="num">1</span><div><div class="ttl">議題1のタイトル</div><div class="who">発表: ◯◯</div></div></div>
+    <div class="row top"><i data-ico="bulb" data-s="40" data-c="blue"></i><div class="grow"><span class="tag">見出し</span><div class="big">要点を<mark>強調</mark>して書く</div><div class="note">補足</div></div></div>
+  </section>
+  <section class="panel c2"><div class="hd"><span class="num">2</span><div><div class="ttl">議題2</div></div></div></section>
+  <section class="panel c3"><div class="hd"><span class="num">3</span><div><div class="ttl">議題3</div></div></div></section>
+</main>
+
+<footer>
+  <div class="foot"><h2><span class="num">✓</span>決定事項</h2><ol class="dec"><li>決まったこと</li></ol></div>
+  <div class="foot"><h2><span class="num">→</span>ネクストアクション</h2>
+    <table class="todo"><tr><th>タスク</th><th>担当</th><th>期限</th></tr><tr><td>やること</td><td>◯◯</td><td>1/8</td></tr></table>
+  </div>
+</footer>
+
+<script src="lib/pict.js"></script>
+<script src="lib/icons.js"></script>
+<script>
+  document.fonts.ready.then(() => document.fonts.load('16px "BIZ UDPGothic"', "あ")).then(() => {
+    mountIcons(); mountBoxes(); mountArrows();
+    document.querySelectorAll(".panel").forEach((c, i) => {
+      const last = c.lastElementChild.getBoundingClientRect().bottom, box = c.getBoundingClientRect().bottom;
+      console.log("panel", i + 1, "余白(px):", Math.round(box - last));
+    });
+    window.READY = true;
+  });
+</script>
+</html>

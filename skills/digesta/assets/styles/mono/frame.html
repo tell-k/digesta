@@ -1,0 +1,67 @@
+<!doctype html>
+<!-- 動画本編の枠(スライド部分が透明な 1920x1080)。#ch=1&topic=0 で章と話題を指定。内容は episode.js(bpd.py が生成)から読む -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; background:transparent; }
+  body { width:1920px; height:1080px; overflow:hidden; color:#2b2b2b; font-family:"Yusei Magic"; position:relative; }
+  #paper { position:absolute; inset:0; background:#ffffff; background-image:radial-gradient(rgba(0,0,0,.08) 1px, transparent 1.2px); background-size:18px 18px;
+    clip-path:polygon(evenodd, 0 0, 1920px 0, 1920px 1080px, 0 1080px, 0 0, 44px 104px, 1388px 104px, 1388px 860px, 44px 860px, 44px 104px); }
+  #top { position:absolute; left:44px; top:14px; right:44px; height:78px; display:flex; align-items:center; gap:14px; }
+  #top h1 { font-family:"Mochiy Pop One"; font-size:36px; margin:0; position:relative; z-index:1; white-space:nowrap; }
+  #top h1 b { font-weight:normal; }
+  #top h1::after { content:""; position:absolute; left:-4px; right:-6px; bottom:2px; height:12px; background:#f5c400; z-index:-1; border-radius:6px; transform:rotate(-.6deg); }
+  #top .dg { color:#fff; font-size:22px; padding:1px 14px 2px; border-radius:4px 14px 4px 14px; transform:rotate(-2deg); white-space:nowrap; }
+  #steps { margin-left:auto; display:flex; gap:14px; font-size:22px; }
+  #steps span { padding:3px 16px; position:relative; white-space:nowrap; opacity:.45; }
+  #steps span.on { opacity:1; }
+  #steps span > b { position:relative; z-index:1; font-weight:normal; }
+  #frame { position:absolute; left:44px; top:104px; width:1344px; height:756px; }
+  #side { position:absolute; left:1420px; top:112px; width:456px; height:748px; }
+  #side .who { color:#fff; font-size:27px; padding:1px 18px 3px; border-radius:20px; display:inline-block; }
+  #side .ttl { font-size:40px; line-height:1.15; margin-top:10px; }
+  #side .sub { font-family:"Zen Kurenaido"; font-size:22px; line-height:1.25; margin-top:6px; }
+  #side h3 { font-size:22px; margin:26px 0 8px; font-weight:normal; color:#9a9a9a; }
+  #side li { list-style:none; font-size:27px; line-height:1.25; padding:9px 12px 9px 44px; position:relative; opacity:.42; margin-bottom:6px; }
+  #side li.done { opacity:.7; }
+  #side li.on { opacity:1; }
+  #side li > b { position:relative; z-index:1; font-weight:normal; }
+  #side li::before { content:attr(data-n); position:absolute; left:8px; top:10px; z-index:1; font-family:"Mochiy Pop One"; font-size:20px; }
+  #side ul { margin:0; padding:0; }
+  #cap { position:absolute; left:44px; top:886px; width:1832px; height:172px; }
+</style>
+<div id="paper"></div>
+<div id="top">
+  <i data-ico="mic" data-s="62" data-rot="-8"></i>
+  <h1 id="h1"></h1>
+  <span class="dg" id="dg"></span>
+  <div id="steps"></div>
+</div>
+<div id="frame"></div>
+<div id="side"></div>
+<div id="cap" data-box="white,#2b2b2b" data-sw="3" data-r="20"></div>
+<script src="rough.js"></script><script src="mono.js"></script><script src="episode.js"></script><script src="icons.js"></script>
+<script>
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const CH = EP.chapters, ch = CH[(+q.ch || 1) - 1], topic = +q.topic || 0, pal = PAL[ch.color];
+  document.getElementById("h1").innerHTML = `${EP.label} <b style="color:${pal.hex}">${EP.number}</b>`;
+  const dg = document.getElementById("dg"); dg.textContent = EP.badge; dg.style.background = pal.hex;
+  document.getElementById("steps").innerHTML = CH.map((c) => `<span class="${c.n === ch.n ? "on" : ""}" data-box="${c.n === ch.n ? PAL[c.color].tint : "white"},${c.color}" data-sw="2.4"><b>${c.n} ${c.short || c.who || c.title}</b></span>`).join("");
+  document.getElementById("frame").dataset.box = `none,${ch.color}`;
+  Object.assign(document.getElementById("frame").dataset, { sw: 6, r: 6, rough: 1.0 });
+  const icons = ch.topics[topic].icons || [];
+  const faceOf = ch.face && ch.face.length ? ch.face : [(ch.deco && ch.deco[0]) || "mic"];  // 発表者がいない章は飾りのイラストで代用
+  document.getElementById("side").innerHTML = `
+    <div style="display:flex;align-items:center;gap:16px">
+      <i data-ico="${faceOf[0]}" data-s="132" data-a="${faceOf.slice(1).join(",")}"></i>
+      <div>${ch.who ? `<span class="who" style="background:${pal.hex}">${ch.who}</span>` : ""}</div>
+    </div>
+    <div class="ttl">${ch.title}</div><div class="sub">${ch.sub || ""}</div>
+    <h3>いまの話題</h3>
+    <ul>${ch.topics.map((t, i) => `<li data-n="${i + 1}" class="${i === topic ? "on" : i < topic ? "done" : ""}" ${i === topic ? `data-box="${pal.tint},none" data-rough="1.8"` : ""}><b>${t.title}</b></li>`).join("")}</ul>
+    <div style="position:absolute;left:0;right:0;bottom:6px;display:flex;justify-content:center;gap:34px">${icons.map((n, i) => `<i data-ico="${n}" data-s="${icons.length > 1 ? 150 : 170}" data-rot="${i ? 5 : -5}"></i>`).join("")}</div>`;
+  document.fonts.ready.then(() => Promise.all(["Yusei Magic", "Zen Kurenaido", "Mochiy Pop One"].map((f) => document.fonts.load(`16px "${f}"`, "あ")))).then(() => {
+    mountIcons(); mountBoxes(); window.READY = true;
+  });
+</script>
+</html>

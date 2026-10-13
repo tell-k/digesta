@@ -1,0 +1,177 @@
+<!doctype html>
+<!-- business スタイルの動画カード。#id=opening|chapter|recap|ending|outro &ch=章番号 &nd=ナレーション秒 &img=グラレコ画像の URL
+     内容は episode.js(digest.py が episode.yaml から生成)から読む。アニメーションはフェードとスライドだけ。seek(ms) で時刻を指定して1フレームずつ撮る -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; }
+  body { width:1920px; height:1080px; overflow:hidden; color:#1f3a5f; font-family:"BIZ UDPGothic", sans-serif; position:relative; background:#ffffff; }
+  section { position:absolute; inset:0; display:none; } section.on { display:block; }
+  .abs { position:absolute; }
+  .rule { position:absolute; left:96px; right:96px; top:120px; height:3px; background:#1f3a5f; }
+  .foot { position:absolute; left:96px; right:96px; bottom:52px; display:flex; justify-content:space-between; font-size:24px; color:#8a949e; }
+  .in { animation:fadein .6s ease-out both; animation-delay:var(--d,0s); }
+  .up { animation:slideup .6s ease-out both; animation-delay:var(--d,0s); }
+  @keyframes fadein { from { opacity:0; } to { opacity:1; } }
+  @keyframes slideup { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+  @keyframes kb { from { transform:scale(1.0); } to { transform:scale(1.04); } }
+  mark { background:none; color:#2f5f9e; font-weight:700; }
+  b { font-weight:700; }
+
+  /* opening */
+  #opening .kicker { left:96px; top:150px; font-size:30px; color:#8a949e; letter-spacing:.08em; }
+  #opening h1 { left:96px; top:200px; margin:0; font-size:92px; line-height:1.15; }
+  #opening h1 b { color:#2f5f9e; }
+  #opening .date { left:96px; top:340px; font-size:34px; }
+  #opening .agenda { left:96px; top:440px; width:1728px; }
+  #opening .agenda h3 { margin:0 0 18px; font-size:28px; color:#8a949e; font-weight:700; letter-spacing:.08em; }
+  #opening .ag { display:flex; align-items:center; gap:28px; padding:18px 0; border-top:1px solid #dfe3e8; font-size:40px; }
+  #opening .ag:last-child { border-bottom:1px solid #dfe3e8; }
+  #opening .ag .n { width:64px; height:64px; border-radius:4px; color:#fff; display:flex; align-items:center; justify-content:center; font-size:34px; font-weight:700; flex:none; }
+  #opening .ag .who { margin-left:auto; font-size:28px; color:#8a949e; }
+
+  /* chapter */
+  .chap .num { left:96px; top:180px; font-size:220px; line-height:1; font-weight:700; }
+  .chap .band { left:96px; top:470px; width:16px; height:280px; }
+  .chap .who { left:150px; top:470px; font-size:34px; color:#8a949e; }
+  .chap .ttl { left:150px; top:530px; font-size:84px; line-height:1.15; font-weight:700; width:1680px; }
+  .chap .sub { left:150px; top:690px; font-size:36px; color:#4a5a6a; line-height:1.4; width:1680px; }
+
+  /* recap */
+  .recap h2 { left:96px; top:150px; margin:0; font-size:44px; font-weight:700; }
+  .recap h2 small { font-size:28px; color:#8a949e; margin-left:24px; font-weight:400; }
+  .recap .pt { left:96px; width:1728px; display:flex; align-items:flex-start; gap:36px; padding:34px 0; border-top:1px solid #dfe3e8; }
+  .recap .pt .n { width:60px; height:60px; border-radius:4px; color:#fff; display:flex; align-items:center; justify-content:center; font-size:32px; font-weight:700; flex:none; margin-top:4px; }
+  .recap .pt .tx { font-size:46px; line-height:1.35; }
+  .recap .pt small { display:block; font-size:30px; color:#4a5a6a; margin-top:10px; }
+  .recap .ico { flex:none; margin-top:2px; }
+
+  /* ending */
+  #ending .img { left:300px; top:60px; width:1320px; height:742px; overflow:hidden; border:1px solid #dfe3e8; }
+  #ending .img img { width:100%; height:100%; display:block; animation:kb 14s linear both; transform-origin:50% 40%; }
+  #ending .msg { left:0; right:0; top:850px; text-align:center; font-size:48px; font-weight:700; }
+  #ending .msg2 { left:0; right:0; top:930px; text-align:center; font-size:30px; color:#8a949e; }
+
+  /* outro */
+  #outro h1 { left:96px; top:180px; margin:0; font-size:84px; font-weight:700; }
+  #outro .thx { left:96px; top:320px; font-size:34px; color:#4a5a6a; }
+  #outro .board { left:96px; top:440px; width:1728px; padding:48px 56px; border:2px solid #1f3a5f; border-radius:4px; }
+  #outro .board .tag { display:inline-block; color:#fff; background:#2f5f9e; font-size:28px; padding:4px 20px; border-radius:4px; margin-right:20px; }
+  #outro .board .lead { font-size:32px; color:#4a5a6a; }
+  #outro .board .hl { font-size:60px; font-weight:700; margin-top:22px; line-height:1.3; }
+  #outro .board .hl b { color:#2f5f9e; }
+  #outro .roles { display:flex; gap:40px; margin-top:34px; }
+  #outro .role { flex:1; display:flex; align-items:center; gap:24px; padding:22px 28px; border:1px solid #dfe3e8; border-radius:4px; font-size:36px; font-weight:700; }
+  #outro .role small { display:block; font-size:26px; color:#4a5a6a; font-weight:400; margin-top:4px; }
+  #outro .bye { left:96px; top:900px; font-size:40px; }
+  #outro .credit { left:96px; bottom:52px; font-size:24px; color:#8a949e; }
+
+  /* thumb: 動画のサムネイル(先頭フレーム)。プレゼンのタイトルスライドの体裁 */
+  #thumb { background:#ffffff; overflow:hidden; }
+  #thumb .side { position:absolute; right:0; top:0; bottom:0; width:560px; background:#1f3a5f;
+    background-image:linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px); background-size:56px 56px; }
+  #thumb .side::before { content:""; position:absolute; left:0; top:0; bottom:0; width:14px; background:#2f5f9e; }
+  #thumb .side .big { position:absolute; right:60px; top:130px; writing-mode:vertical-rl; font-weight:700; font-size:120px; line-height:1; color:rgba(255,255,255,.14); letter-spacing:.14em; }
+  #thumb .top { left:120px; right:680px; top:110px; padding-bottom:16px; border-bottom:2px solid #1f3a5f; font-size:28px; font-weight:700; letter-spacing:.3em; color:#2f5f9e; }
+  #thumb h1 { left:116px; top:330px; margin:0; font-size:140px; line-height:1.1; font-weight:700; color:#1f3a5f; white-space:nowrap; }
+  #thumb .rule { left:120px; top:530px; width:160px; height:10px; background:#2f5f9e; }
+  #thumb .sub { left:120px; top:574px; font-size:52px; font-weight:700; color:#1f3a5f; }
+  #thumb .sub .pill { display:inline-block; margin-left:28px; padding:4px 24px; border-radius:4px; background:#2f5f9e; color:#fff; font-size:32px; vertical-align:middle; }
+  #thumb .meta { left:120px; top:680px; font-size:34px; color:#4a5a6a; line-height:1.6; }
+  #thumb .meta b { color:#1f3a5f; }
+  #thumb .topics { left:120px; right:640px; bottom:96px; display:flex; flex-wrap:wrap; gap:14px 12px; }
+  #thumb .topics > span { display:flex; align-items:center; gap:12px; font-size:27px; font-weight:700; color:#1f3a5f; padding:7px 22px 7px 7px; border:1px solid #c9d1da; border-radius:4px; white-space:nowrap; }
+  #thumb .topics .n { width:38px; height:38px; border-radius:4px; font-size:21px; display:flex; align-items:center; justify-content:center; color:#fff; }
+</style>
+
+<section id="opening"></section>
+<section id="chapter" class="chap"></section>
+<section id="recap" class="recap"></section>
+<section id="ending"></section>
+<section id="outro"></section>
+<section id="thumb"></section>
+
+<script src="pict.js"></script><script src="episode.js"></script><script src="icons.js"></script>
+<script>
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const id = q.id || "opening", CH = EP.chapters, ch = CH[(+q.ch || 1) - 1], pal = PAL[ch.color];
+  const ND = +q.nd || 8;
+  const el = document.getElementById(id);
+  el.classList.add("on");
+  const s1 = (x) => x.toFixed(2) + "s";
+  const foot = `<div class="foot in" style="--d:.2s"><span>${EP.series || ""}</span><span>${EP.label} ${EP.number || ""} ${EP.badge}</span></div>`;
+
+  if (id === "opening") {
+    const step = Math.max(0.6, (ND * 0.7) / Math.max(CH.length, 1));
+    el.innerHTML = `
+      <div class="abs kicker in">${EP.badge}</div>
+      <h1 class="abs in" style="--d:.2s">${EP.label} <b>${EP.number || ""}</b></h1>
+      <div class="abs date in" style="--d:.5s">${[EP.series, EP.date].filter(Boolean).join("　")}</div>
+      <div class="abs agenda"><h3 class="in" style="--d:${s1(ND * 0.2)}">AGENDA</h3>` +
+      CH.map((c, i) => `<div class="ag up" style="--d:${s1(ND * 0.2 + 0.3 + i * step)}"><span class="n" style="background:${PAL[c.color].hex}">${c.n}</span><span>${c.title}</span>${c.who ? `<span class="who">${c.who}</span>` : ""}</div>`).join("") +
+      `</div>` + foot;
+  }
+  if (id === "chapter") {
+    el.innerHTML = `
+      <div class="abs num in" style="color:${pal.hex}">${String(ch.n).padStart(2, "0")}</div>
+      <div class="abs band in" style="background:${pal.hex};--d:.3s"></div>
+      ${ch.who ? `<div class="abs who up" style="--d:.4s">${ch.who}</div>` : ""}
+      <div class="abs ttl up" style="--d:.5s">${ch.title}</div>
+      <div class="abs sub up" style="--d:.8s">${ch.sub_card || ch.sub || ""}</div>` + foot;
+  }
+  if (id === "recap") {
+    const items = (ch.recap || []).slice(0, 3), step = Math.max(1.4, ND * 0.26);
+    el.innerHTML = `
+      <h2 class="abs in">${ch.recap_title || "ポイント"}<small>${ch.who ? ch.who + " / " : ""}${ch.title}</small></h2>` +
+      items.map((r, i) => `
+      <div class="abs pt up" style="top:${250 + i * 220}px;--d:${s1(0.4 + i * step)}">
+        <span class="n" style="background:${pal.hex}">${i + 1}</span>
+        <i data-ico="${r.icon}" data-s="72" data-c="${ch.color}"></i>
+        <div class="tx">${r.text}<small>${r.sub || ""}</small></div>
+      </div>`).join("") + foot;
+  }
+  if (id === "ending") {
+    const e = EP.ending || {};
+    el.innerHTML = `
+      <div class="abs img in"><img src="${q.img || ""}"></div>
+      <div class="abs msg up" style="--d:.6s">${e.message || ""}</div>
+      <div class="abs msg2 up" style="--d:1.0s">${e.sub || ""}</div>`;
+  }
+  if (id === "outro") {
+    const o = EP.outro || {}, b = o.board, roles = (b && b.roles) || [];
+    el.innerHTML = `
+      <h1 class="abs in">${o.headline || ""}</h1>
+      <div class="abs thx up" style="--d:.4s">${o.thanks || ""}</div>` +
+      (b ? `<div class="abs board up" style="--d:${s1(ND * 0.25)}">
+        <div><span class="tag">${b.tag || ""}</span><span class="lead">${b.lead || ""}</span></div>
+        <div class="hl">${b.text || ""}</div>
+        ${roles.length ? `<div class="roles">${roles.slice(0, 2).map((r, i) => `<div class="role up" style="--d:${s1(ND * (0.5 + 0.12 * i))}"><i data-ico="${r.icon}" data-s="56"></i><div>${r.name}<small>${r.sub || ""}</small></div></div>`).join("")}</div>` : ""}
+      </div>` : "") +
+      `<div class="abs bye up" style="${b ? "" : "top:500px;font-size:56px;"}--d:${s1(ND * 0.85)}">${o.bye || ""}</div>
+      ${EP.credit ? `<div class="abs credit">${EP.credit}</div>` : ""}`;
+  }
+
+  if (id === "thumb") {
+    const [when, who] = (EP.series || "").split(" / ");
+    el.innerHTML = `
+      <div class="side"><div class="big">DIGEST</div></div>
+      <div class="abs top">MEETING DIGEST</div>
+      <h1 class="abs">${EP.label} ${EP.number || ""}</h1>
+      <div class="abs rule"></div>
+      <div class="abs sub">${EP.badge || ""}${EP.opening_bubble ? `<span class="pill">${EP.opening_bubble}</span>` : ""}</div>
+      <div class="abs meta"><b>${EP.date || when || ""}</b>${when && EP.date ? "　" + when.split(" ").slice(1).join(" ") : ""}${who ? "<br>" + who : ""}</div>
+      <div class="abs topics">${CH.map((c) => `<span><span class="n" style="background:${PAL[c.color].hex}">${c.n}</span>${c.short || c.title}</span>`).join("")}</div>`;
+  }
+
+  document.fonts.ready.then(() => document.fonts.load('16px "BIZ UDPGothic"', "あ")).then(async () => {
+    mountIcons();
+    await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
+    const anims = document.getAnimations();
+    anims.forEach((a) => a.pause());
+    window.seek = (ms) => anims.forEach((a) => (a.currentTime = ms));
+    window.END = Math.max(0, ...anims.filter((a) => a.effect.getComputedTiming().iterations === 1 && a.animationName !== "kb").map((a) => a.effect.getComputedTiming().endTime));
+    seek(0);
+    window.READY = true;
+  });
+</script>
+</html>

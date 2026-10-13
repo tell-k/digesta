@@ -1,0 +1,18 @@
+# doodle: 手描き風。クリーム色の紙にマーカーで描いたような線と、キャラクターのイラスト。勉強会や社内イベント向け
+name: doodle
+description: 手描き風。クリーム色の紙、手書きフォント、揺れる線の枠、人物アイコン。勉強会・社内イベント向け
+fonts:  # Google Fonts(OFL)から取得する。ファイル名: [リポジトリのフォルダ, font-family, weight]
+  YuseiMagic-Regular.ttf: [yuseimagic, Yusei Magic, 400]
+  ZenKurenaido-Regular.ttf: [zenkurenaido, Zen Kurenaido, 400]
+  KleeOne-SemiBold.ttf: [kleeone, Klee One, 400]
+  ZenMaruGothic-Medium.ttf: [zenmarugothic, Zen Maru Gothic, 500]
+  ZenMaruGothic-Bold.ttf: [zenmarugothic, Zen Maru Gothic, 700]
+  ZenMaruGothic-Black.ttf: [zenmarugothic, Zen Maru Gothic, 900]
+  MochiyPopOne-Regular.ttf: [mochiypopone, Mochiy Pop One, 400]
+subtitle_font: Zen Maru Gothic Bold   # 動画の字幕フォント(libass に渡す名前)
+paper: 0xfdf7e8                       # 動画の背景色(フェードの色)
+bgm_prompt: >-
+  Create a 3-minute instrumental background track for a friendly, hand-drawn style recap video of a team meeting.
+  Light and cheerful but unobtrusive: ukulele and muted acoustic guitar strumming, soft glockenspiel melody, gentle hand claps and a light shaker, warm upright bass.
+  Around 105 BPM, major key, steady relaxed energy from start to finish with no big build-ups, drops or dramatic breaks, so narration can sit on top.
+  Instrumental only, no vocals, no spoken words. Smooth beginning and a soft natural ending.

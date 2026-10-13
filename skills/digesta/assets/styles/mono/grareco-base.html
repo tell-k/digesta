@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>グラレコ</title>
+<link rel="stylesheet" href="lib/fonts.css">
+<style>
+  :root { --ink:#2b2b2b; --paper:#ffffff; --coral:#2b2b2b; --mag:#2b2b2b; --org:#2b2b2b; --teal:#6b6b6b; --yel:#f5c400; --pale:#fff3b0; --gray:#9a9a9a; --light:#eeeeee; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  body {
+    width:1840px; height:1035px; overflow:hidden; color:var(--ink);
+    background:var(--paper);
+    background-image:radial-gradient(rgba(0,0,0,.08) 1px, transparent 1.2px);
+    background-size:18px 18px;
+    font-family:"Klee One"; font-size:15.5px; line-height:1.42;
+  }
+  .y { font-family:"Yusei Magic"; }
+  .k { font-family:"Zen Kurenaido"; }
+  header { position:absolute; left:28px; top:12px; right:28px; height:96px; display:flex; align-items:center; gap:22px; }
+  h1 { font-family:"Mochiy Pop One"; font-size:50px; margin:0; letter-spacing:1px; white-space:nowrap; position:relative; }
+  h1 b { color:var(--coral); font-weight:normal; }
+  h1::after { content:""; position:absolute; left:-4px; right:-6px; bottom:4px; height:16px; background:var(--yel); z-index:-1; border-radius:8px; transform:rotate(-.6deg); }
+  .meta { font-family:"Yusei Magic"; font-size:19px; line-height:1.35; }
+  .meta small { font-family:"Zen Kurenaido"; font-size:17px; }
+  .three { margin-left:auto; display:flex; align-items:center; gap:12px; font-family:"Yusei Magic"; font-size:18px; }
+  .three .pill { padding:5px 14px; white-space:nowrap; }
+  .three .n { font-family:"Mochiy Pop One"; font-size:15px; margin-right:6px; }
+
+  main { position:absolute; left:26px; right:26px; top:116px; bottom:16px; display:grid; grid-template-columns:1fr 1.06fr 1fr; gap:26px; }
+  .col { position:relative; padding:12px 16px 12px; display:flex; flex-direction:column; gap:6px; justify-content:space-between; }
+  .col > * { position:relative; z-index:1; }
+  .col > svg:first-child { z-index:0; }
+  .hd { display:flex; align-items:center; gap:12px; margin-bottom:1px; }
+  .hd .who { font-family:"Yusei Magic"; font-size:17px; color:#fff; padding:1px 12px; border-radius:14px; display:inline-block; }
+  .hd .ttl { font-family:"Yusei Magic"; font-size:27px; line-height:1.15; margin-top:3px; }
+  .hd .sub { font-family:"Zen Kurenaido"; font-size:16px; }
+  .who, .tag { background:var(--ink); }
+  .tag { font-family:"Yusei Magic"; color:#fff; font-size:16.5px; padding:0 11px 1px; border-radius:4px 12px 4px 12px; display:inline-block; transform:rotate(-1.5deg); white-space:nowrap; }
+  .row { display:flex; gap:10px; align-items:center; }
+  .top { align-items:flex-start; }
+  .grow { flex:1; min-width:0; }
+  .chip { display:inline-block; padding:1px 10px; margin:2px 3px 2px 0; font-family:"Yusei Magic"; font-size:15.5px; white-space:nowrap; }
+  .chip > span, .bub > span, .pill > span, .card > div, .card > span { position:relative; z-index:1; }
+  .big { font-family:"Yusei Magic"; font-size:21px; line-height:1.25; }
+  .xl { font-family:"Mochiy Pop One"; font-size:25px; line-height:1.1; }
+  .xl, em { color:var(--ink); } .xl { background:var(--ink); color:#fff; padding:0 8px; border-radius:4px; display:inline-block; }
+  em { font-style:normal; font-family:"Yusei Magic"; }
+  mark { background:linear-gradient(transparent 52%, var(--hl) 52%, var(--hl) 94%, transparent 94%); color:inherit; padding:0 2px; }
+  .c1, .c2, .c3 { --hl:var(--pale); }
+  .bub { display:inline-block; padding:4px 12px; font-family:"Yusei Magic"; font-size:15.5px; line-height:1.3; }
+  .note { font-family:"Zen Kurenaido"; font-size:15.5px; line-height:1.3; }
+  .card { padding:6px 10px; }
+  .ico { flex:none; }
+  .ar { font-family:"Yusei Magic"; font-size:22px; flex:none; }
+  .ar { color:var(--ink); }
+  .step { flex:1; text-align:center; font-size:14px; line-height:1.3; }
+  .step b { font-family:"Yusei Magic"; font-weight:normal; font-size:16px; display:block; }
+  .qa { font-family:"Yusei Magic"; font-size:14.5px; color:var(--ink); background:var(--yel); border-radius:50%; width:25px; height:25px; display:inline-flex; align-items:center; justify-content:center; flex:none; }
+  ul { margin:0; padding-left:1.1em; } li { margin:0; }
+  .route { position:relative; height:136px; }
+  .stop { position:absolute; text-align:center; font-family:"Yusei Magic"; font-size:16px; line-height:1.15; transform:translateX(-50%); white-space:nowrap; }
+  .stop small { display:block; font-family:"Zen Kurenaido"; font-size:13.5px; }
+  .stop .d { width:15px; height:15px; border-radius:50%; background:#fff; border:3px solid var(--ink); margin:0 auto 2px; }
+  .stop.ev .d { background:var(--org); width:19px; height:19px; }
+  .leg { position:absolute; transform:translateX(-50%); }
+  footer { position:absolute; right:30px; bottom:3px; font-family:"Zen Kurenaido"; font-size:12.5px; color:var(--gray); }
+  /* mono: 色は黄(強調・札)・黒(文字・枠)・グレー(区切り・補足)の3色。data-box の色名は yellow / gray / white / none を使う */
+</style>
+
+<!-- ここから下を会議の内容で書く。部品の使い方は skill の references/grareco-guide.md と、作例 assets/examples/study/grareco.html を参照 -->
+<header>
+  <i data-ico="mic" data-s="78" data-rot="-8"></i>
+  <h1>タイトル <b>#000</b></h1>
+  <div class="meta">シリーズ名<br><small>2026.1.1(木)10:00〜 / オンライン</small></div>
+  <div class="three">
+    <span>今回は3本立て!</span>
+    <span class="pill" data-box="yellow,none"><span><span class="n">1</span>章1</span></span>
+    <span class="pill" data-box="yellow,none"><span><span class="n">2</span>章2</span></span>
+    <span class="pill" data-box="yellow,none"><span><span class="n">3</span>章3</span></span>
+  </div>
+</header>
+
+<main>
+  <section class="col c1" data-box="white,#2b2b2b" data-sw="3" data-r="22">
+    <div class="hd">
+      <i data-ico="face" data-s="74" data-a="gray,yellow,long"></i>
+      <div><span class="who">◯◯さん</span> <span class="sub">副題</span><div class="ttl">章のタイトル</div></div>
+    </div>
+    <div class="row top">
+      <i data-ico="bulb" data-s="60"></i>
+      <div class="grow"><span class="tag">見出し</span><div class="big">要点を<mark>強調</mark>して</div><div class="note">補足</div></div>
+    </div>
+  </section>
+  <section class="col c2" data-box="white,#2b2b2b" data-sw="3" data-r="22"></section>
+  <section class="col c3" data-box="white,#2b2b2b" data-sw="3" data-r="22"></section>
+</main>
+
+<script src="lib/rough.js"></script>
+<script src="lib/mono.js"></script>
+<script src="lib/icons.js"></script>
+<script>
+  document.fonts.ready.then(() => Promise.all(["Yusei Magic", "Klee One", "Zen Kurenaido", "Mochiy Pop One"].map((f) => document.fonts.load(`16px "${f}"`, "あ")))).then(() => {
+    mountIcons(); mountBoxes(); mountArrows();
+    // はみ出し検出
+    document.querySelectorAll(".col").forEach((c, i) => {
+      const last = c.lastElementChild.getBoundingClientRect().bottom, box = c.getBoundingClientRect().bottom;
+      console.log("col", i + 1, "余白(px):", Math.round(box - last));
+    });
+    window.READY = true;
+  });
+</script>
+</html>

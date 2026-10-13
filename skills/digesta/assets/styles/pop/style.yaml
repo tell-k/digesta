@@ -1,0 +1,24 @@
+# pop: 白地にカラフルなパステルの帯と太い枠、手書きの見出し。キャラクターは Gemini の画像生成で作る(chars.yaml)。
+name: pop
+description: 白地・カラフルなパステル・手書きの見出し・番号付きパネル。キャラクターは Gemini で生成した水彩風イラスト。会議の記録を明るく見せたいとき向け
+fonts:
+  YuseiMagic-Regular.ttf: [yuseimagic, Yusei Magic, 400]
+  MochiyPopOne-Regular.ttf: [mochiypopone, Mochiy Pop One, 400]
+  ZenKurenaido-Regular.ttf: [zenkurenaido, Zen Kurenaido, 400]
+  ZenMaruGothic-Medium.ttf: [zenmarugothic, Zen Maru Gothic, 500]
+  ZenMaruGothic-Bold.ttf: [zenmarugothic, Zen Maru Gothic, 700]
+  ZenMaruGothic-Black.ttf: [zenmarugothic, Zen Maru Gothic, 900]
+subtitle_font: Zen Maru Gothic Bold
+paper: 0xffffff
+# キャラクター画像のプロンプトの先頭に付く共通の指示。chars.yaml には見た目とポーズだけを書く
+char_style: >-
+  A 2D illustration, NOT a photograph: cute flat vector cartoon in a hand-drawn sketchnote / graphic recording style,
+  soft pastel colors, thin dark brown outline, gentle flat watercolor-like shading, simplified friendly face, waist-up.
+  The character is a neat, clean-looking young adult (ageless, roughly 20s to 30s), slim, well-groomed, tidy hair, smart-casual clothes,
+  no wrinkles, no beard stubble, no visible age features, no exaggerated body shapes; the same stylized, flattering look for everyone.
+  Plain pure white background only, no scenery, no text, no letters, no shadow, no border. Subject:
+bgm_prompt: >-
+  Create a 3-minute instrumental background track for a bright and colorful recap video of a team meeting.
+  Cheerful and light but unobtrusive: acoustic guitar strums, marimba and glockenspiel melody, soft hand claps, warm bass, light shaker.
+  Around 112 BPM, major key, steady happy energy from start to finish with no big build-ups or drops, so narration can sit on top.
+  Instrumental only, no vocals. Smooth beginning and a soft natural ending.

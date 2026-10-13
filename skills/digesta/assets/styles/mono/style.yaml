@@ -1,0 +1,18 @@
+# mono: 黄・黒・グレーの3色だけ。白地に手書き文字、黒の枠、黄色のハイライト。落ち着いた印象で、カラフルすぎない記録向け
+name: mono
+description: 黄・黒・グレーの3色。白地、手書きフォント、黒い枠線、黄色のハイライト、黒地に白抜きの強調。doodle より静かで business より柔らかい
+fonts:
+  YuseiMagic-Regular.ttf: [yuseimagic, Yusei Magic, 400]
+  ZenKurenaido-Regular.ttf: [zenkurenaido, Zen Kurenaido, 400]
+  KleeOne-SemiBold.ttf: [kleeone, Klee One, 400]
+  ZenMaruGothic-Medium.ttf: [zenmarugothic, Zen Maru Gothic, 500]
+  ZenMaruGothic-Bold.ttf: [zenmarugothic, Zen Maru Gothic, 700]
+  ZenMaruGothic-Black.ttf: [zenmarugothic, Zen Maru Gothic, 900]
+  MochiyPopOne-Regular.ttf: [mochiypopone, Mochiy Pop One, 400]
+subtitle_font: Zen Maru Gothic Bold
+paper: 0xffffff
+bgm_prompt: >-
+  Create a 3-minute instrumental background track for a calm, minimal recap video of a team meeting.
+  Gentle and unobtrusive: soft acoustic guitar fingerpicking, light felt piano, a quiet warm pad, very light shaker.
+  Around 95 BPM, major key, steady relaxed energy from start to finish with no big build-ups or drops, so narration can sit on top.
+  Instrumental only, no vocals. Smooth beginning and a soft natural ending.

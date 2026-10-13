@@ -1,0 +1,55 @@
+<!doctype html>
+<!-- business スタイルの本編の枠(スライド部分が透明な 1920x1080)。#ch=1&topic=0 で章と話題を指定 -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; background:transparent; }
+  body { width:1920px; height:1080px; overflow:hidden; color:#1f3a5f; font-family:"BIZ UDPGothic", sans-serif; position:relative; }
+  #paper { position:absolute; inset:0; background:#ffffff;
+    clip-path:polygon(evenodd, 0 0, 1920px 0, 1920px 1080px, 0 1080px, 0 0, 44px 104px, 1388px 104px, 1388px 860px, 44px 860px, 44px 104px); }
+  #top { position:absolute; left:44px; top:22px; right:44px; height:60px; display:flex; align-items:center; gap:18px; border-bottom:2px solid #1f3a5f; }
+  #top h1 { font-size:30px; margin:0; font-weight:700; white-space:nowrap; }
+  #top h1 b { font-weight:700; }
+  #top .dg { font-size:20px; color:#8a949e; white-space:nowrap; }
+  #steps { margin-left:auto; display:flex; gap:10px; font-size:19px; }
+  #steps span { padding:4px 14px; border:1px solid #dfe3e8; border-radius:4px; color:#8a949e; white-space:nowrap; }
+  #steps span.on { color:#fff; border-color:transparent; }
+  #frame { position:absolute; left:44px; top:104px; width:1344px; height:756px; border:2px solid #1f3a5f; }
+  #side { position:absolute; left:1420px; top:104px; width:456px; height:756px; }
+  #side .who { font-size:22px; color:#8a949e; }
+  #side .ttl { font-size:34px; line-height:1.25; margin-top:6px; font-weight:700; padding-left:18px; border-left:8px solid; }
+  #side .sub { font-size:20px; color:#4a5a6a; line-height:1.35; margin-top:12px; }
+  #side h3 { font-size:18px; margin:34px 0 6px; font-weight:700; color:#8a949e; letter-spacing:.08em; }
+  #side ul { margin:0; padding:0; }
+  #side li { list-style:none; font-size:24px; line-height:1.3; padding:12px 12px 12px 48px; position:relative; color:#8a949e; border-top:1px solid #dfe3e8; }
+  #side li:last-child { border-bottom:1px solid #dfe3e8; }
+  #side li.done { color:#4a5a6a; }
+  #side li.on { color:#1f3a5f; font-weight:700; }
+  #side li::before { content:attr(data-n); position:absolute; left:8px; top:11px; width:28px; height:28px; border-radius:4px; font-size:16px; display:flex; align-items:center; justify-content:center; border:1px solid #dfe3e8; }
+  #side li.on::before { color:#fff; border-color:transparent; }
+  #side .icons { position:absolute; left:0; right:0; bottom:10px; display:flex; justify-content:center; gap:40px; }
+  #cap { position:absolute; left:44px; top:886px; width:1832px; height:172px; border:2px solid #1f3a5f; background:#fff; }
+</style>
+<div id="paper"></div>
+<div id="top"><h1 id="h1"></h1><span class="dg" id="dg"></span><div id="steps"></div></div>
+<div id="frame"></div>
+<div id="side"></div>
+<div id="cap"></div>
+<script src="pict.js"></script><script src="episode.js"></script><script src="icons.js"></script>
+<script>
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const CH = EP.chapters, ch = CH[(+q.ch || 1) - 1], topic = +q.topic || 0, pal = PAL[ch.color];
+  document.getElementById("h1").innerHTML = `${EP.label} <b style="color:${pal.hex}">${EP.number || ""}</b>`;
+  document.getElementById("dg").textContent = EP.badge;
+  document.getElementById("steps").innerHTML = CH.map((c) => `<span class="${c.n === ch.n ? "on" : ""}" style="${c.n === ch.n ? `background:${PAL[c.color].hex}` : ""}">${c.n} ${c.short || c.who || c.title}</span>`).join("");
+  const icons = ch.topics[topic].icons || [];
+  document.getElementById("side").innerHTML = `
+    ${ch.who ? `<div class="who">${ch.who}</div>` : ""}
+    <div class="ttl" style="border-color:${pal.hex}">${ch.title}</div><div class="sub">${ch.sub || ""}</div>
+    <h3>TOPICS</h3>
+    <ul>${ch.topics.map((t, i) => `<li data-n="${i + 1}" class="${i === topic ? "on" : i < topic ? "done" : ""}" style="${i === topic ? `--c:${pal.hex}` : ""}">${t.title}</li>`).join("")}</ul>
+    <div class="icons">${icons.map((n) => `<i data-ico="${n}" data-s="${icons.length > 1 ? 110 : 130}" data-c="${ch.color}"></i>`).join("")}</div>
+    <style>#side li.on::before { background:${pal.hex}; }</style>`;
+  document.fonts.ready.then(() => document.fonts.load('16px "BIZ UDPGothic"', "あ")).then(() => { mountIcons(); window.READY = true; });
+</script>
+</html>
