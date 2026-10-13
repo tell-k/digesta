@@ -4,11 +4,12 @@ English | [日本語](README.ja.md)
 
 An [Agent Skill](https://agentskills.io/) that turns a meeting or study-session recording and its transcript into minutes, a graphic recording, and a digest video. The name is Latin for "things arranged and summarized".
 
-| Deliverable | What it is | Output |
-|---|---|---|
-| Minutes | Decisions, action items, and the key points of each talk or agenda item | Markdown, optionally docx (`<name>_summary.md`) |
-| Graphic recording | A one-page visual summary | PNG (`<name>_graphic_4k.png`, `_1920.png`) |
-| Digest video | A few minutes of clips in the speakers' own voices, with subtitles, narrated title/recap cards, and background music | mp4 (`<name>_digest.mp4`, 1920x1080) |
+- **Minutes**: decisions, action items, and the key points of each talk or agenda item
+  - Markdown, optionally docx (`<name>_summary.md`)
+- **Graphic recording**: a one-page visual summary
+  - PNG (`<name>_graphic_4k.png`, `_1920.png`)
+- **Digest video**: a few minutes of clips in the speakers' own voices, with subtitles, narrated title/recap cards, and background music
+  - mp4 (`<name>_digest.mp4`, 1920x1080)
 
 > **Note:** digesta is built for Japanese meetings. The skill instructions, the generated minutes, subtitles, narration, file names, and the script messages are in Japanese.
 
@@ -51,16 +52,24 @@ Open the project folder that contains your meeting folders (e.g. `tech-lunch/`) 
 /digesta <meeting-dir> [minutes|image|video|all] [--fresh] [what to change]
 ```
 
-| Example | What it does |
-|---|---|
-| `/digesta tech-lunch/012` | Builds minutes, image, and video |
-| `/digesta tech-lunch/012 minutes` | Minutes only (a few minutes) |
-| `/digesta tech-lunch/012 minutes,image` | Minutes and image |
-| `/digesta tech-lunch/012 image split by chapter too` | Also outputs a 16:9 image per chapter (`<name>_graphic_chN.png`), handy for posting one chapter per Slack thread reply |
-| `/digesta tech-lunch/012 video` | Video only; also used to rebuild after editing the text |
-| `/digesta tech-lunch/012 minutes also as docx` | Also exports the minutes as docx |
-| `/digesta tech-lunch/012 video make the BGM quieter` | Describe the change in plain words |
-| `/digesta tech-lunch/012 --fresh` | Discards the existing text and rewrites it from the source material |
+Examples:
+
+- `/digesta tech-lunch/012`
+  - Builds minutes, image, and video
+- `/digesta tech-lunch/012 minutes`
+  - Minutes only (a few minutes)
+- `/digesta tech-lunch/012 minutes,image`
+  - Minutes and image
+- `/digesta tech-lunch/012 image split by chapter too`
+  - Also outputs a 16:9 image per chapter (`<name>_graphic_chN.png`), handy for posting one chapter per Slack thread reply
+- `/digesta tech-lunch/012 video`
+  - Video only; also used to rebuild after editing the text
+- `/digesta tech-lunch/012 minutes also as docx`
+  - Also exports the minutes as docx
+- `/digesta tech-lunch/012 video make the BGM quieter`
+  - Describe the change in plain words
+- `/digesta tech-lunch/012 --fresh`
+  - Discards the existing text and rewrites it from the source material
 
 You can also just ask in plain language, e.g. "make the minutes for 012" or "I edited the narration, update the video".
 
@@ -74,28 +83,32 @@ Rough timings: minutes take a few minutes, the image 10–20 minutes, and the fi
 
 ### Required
 
-| Requirement | Why | Install |
-|---|---|---|
-| An agent that supports Agent Skills | Runs the skill. Tested with [Claude Code](https://code.claude.com/); Codex and others should work (they need to run shell commands and read images) | — |
-| macOS | The only tested OS (Intel and Apple silicon). Linux may work but is untested; narration with `say` is macOS-only | — |
-| [uv](https://docs.astral.sh/uv/) | Runs the Python scripts; their dependencies (PyYAML, Playwright, Pillow, faster-whisper) are installed automatically | `brew install uv` |
-| [ffmpeg](https://ffmpeg.org/) with libass | Audio/video processing and burned-in subtitles | `brew install ffmpeg` |
-| Internet access on first run | Downloads fonts (Google Fonts, OFL) to `~/.cache/digesta/fonts/`, a headless Chromium for rendering, and the local transcription model | — |
+- **An agent that supports Agent Skills**
+  - Runs the skill. Tested with [Claude Code](https://code.claude.com/); Codex and others should work (they need to run shell commands and read images)
+- **macOS**
+  - The only tested OS (Intel and Apple silicon). Linux may work but is untested; narration with `say` is macOS-only
+- **[uv](https://docs.astral.sh/uv/)** (`brew install uv`)
+  - Runs the Python scripts; their dependencies (PyYAML, Playwright, Pillow, faster-whisper) are installed automatically
+- **[ffmpeg](https://ffmpeg.org/) with libass** (`brew install ffmpeg`)
+  - Audio/video processing and burned-in subtitles
+- **Internet access on first run**
+  - Downloads fonts (Google Fonts, OFL) to `~/.cache/digesta/fonts/`, a headless Chromium for rendering, and the local transcription model
 
 ### Required for the default video settings
 
-| Requirement | Why | Without it |
-|---|---|---|
-| Gemini API key | Narration (Gemini TTS) and background music (Lyria). Lyria needs a key with billing enabled | Set `external_api: deny` (narration with macOS `say`, no BGM), or `narration: voicevox` / `bgm: none` |
+- **Gemini API key**
+  - Narration (Gemini TTS) and background music (Lyria). Lyria needs a key with billing enabled
+  - Without it: set `external_api: deny` (narration with macOS `say`, no BGM), or `narration: voicevox` / `bgm: none`
 
 Minutes and the graphic recording need no API key.
 
 ### Optional
 
-| Requirement | Why | Install |
-|---|---|---|
-| [pandoc](https://pandoc.org/) | Importing docx transcripts (e.g. Gemini notes, Teams transcripts) and exporting minutes as docx | `brew install pandoc` |
-| Docker + [VOICEVOX engine](https://voicevox.hiroshiba.jp/) | Local Japanese narration (`narration: voicevox`; a credit line is required) | `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest` |
+- **[pandoc](https://pandoc.org/)** (`brew install pandoc`)
+  - Importing docx transcripts (e.g. Gemini notes, Teams transcripts) and exporting minutes as docx
+- **Docker + [VOICEVOX engine](https://voicevox.hiroshiba.jp/)**
+  - Local Japanese narration (`narration: voicevox`; a credit line is required)
+  - Install: `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
 
 ### Gemini API key
 
@@ -156,15 +169,20 @@ All three deliverables can be made from a transcript or notes alone. Without a v
 
 Edit the source text and run the same command again, or ask the agent in plain language.
 
-| What to change | File to edit | Run |
-|---|---|---|
-| Wording of the minutes | `digest/minutes.md` | `minutes` |
-| Wording or layout of the graphic recording | `digest/grareco.html` | `image` |
-| Narration wording or pronunciation | `digest/narration.md` | `video` |
-| Subtitles, which scenes are cut, clipped words | `digest/cuts.yaml` | `video` |
-| Card text (title, recap, closing notice) | `digest/episode.yaml` | `video` |
-| Voice, BGM on/off or volume, minutes format | Settings in the meeting or project `digesta.md` | `video` / `minutes` |
-| Style (hand-drawn ↔ business) | The `style` setting; rewrite the graphic recording for that style (`grareco.<style>.html`) | `image` → `video` |
+- **Wording of the minutes**
+  - Edit `digest/minutes.md`, run `minutes`
+- **Wording or layout of the graphic recording**
+  - Edit `digest/grareco.html`, run `image`
+- **Narration wording or pronunciation**
+  - Edit `digest/narration.md`, run `video`
+- **Subtitles, which scenes are cut, clipped words**
+  - Edit `digest/cuts.yaml`, run `video`
+- **Card text (title, recap, closing notice)**
+  - Edit `digest/episode.yaml`, run `video`
+- **Voice, BGM on/off or volume, minutes format**
+  - Edit the settings in the meeting or project `digesta.md`, run `video` / `minutes`
+- **Style (hand-drawn ↔ business)**
+  - Change the `style` setting and rewrite the graphic recording for that style (`grareco.<style>.html`), run `image` → `video`
 
 The video rebuilds only what changed. Editing one narration sentence redoes only that card's audio and frames.
 
@@ -280,17 +298,25 @@ A `digesta.md` is created in the project on the first run; add your meeting type
 
 ## Troubleshooting
 
-| Symptom | Fix |
-|---|---|
-| Stops with "外部 API に内容を送る。…まだ確認が取れていない" (not yet confirmed to send to an external API) | Set `external_api` in `digesta.md` to `allow` or `deny` |
-| "Gemini の API キーがない" (no Gemini API key) | Put `GEMINI_API_KEY=...` in the project's `.env`; check the source with `digest.py status` |
-| Lyria returns HTTP 429 or a billing error | Use a key with billing enabled, or set `bgm: none` |
-| "Chromium がない" (Chromium not found) | `uv run --with playwright playwright install chromium-headless-shell` |
-| "VOICEVOX エンジンに繋がらない" (cannot reach VOICEVOX) | Start Docker and run `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest` |
-| "録画ファイルが 2 個ある" (two recordings found) | Add `video: <file name>` to the meeting's `digesta.md` settings |
-| Card text is cut off | A YAML value contains ` #` or `: `; quote it |
-| The start or end of a word is clipped | In `digest/cuts.yaml`, move `start` earlier / `end` later by 0.2–0.4 s |
-| Transcription is slow | Slower than real time on Intel Macs. The skill transcribes only candidate ranges; use full transcription (`asr.py full`) only when needed. If it is interrupted, running it again resumes where it stopped (`--force` starts over) |
+- **Stops with "外部 API に内容を送る。…まだ確認が取れていない"** (not yet confirmed to send to an external API)
+  - Set `external_api` in `digesta.md` to `allow` or `deny`
+- **"Gemini の API キーがない"** (no Gemini API key)
+  - Put `GEMINI_API_KEY=...` in the project's `.env`; check the source with `digest.py status`
+- **Lyria returns HTTP 429 or a billing error**
+  - Use a key with billing enabled, or set `bgm: none`
+- **"Chromium がない"** (Chromium not found)
+  - `uv run --with playwright playwright install chromium-headless-shell`
+- **"VOICEVOX エンジンに繋がらない"** (cannot reach VOICEVOX)
+  - Start Docker and run `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
+- **"録画ファイルが 2 個ある"** (two recordings found)
+  - Add `video: <file name>` to the meeting's `digesta.md` settings
+- **Card text is cut off**
+  - A YAML value contains ` #` or `: `; quote it
+- **The start or end of a word is clipped**
+  - In `digest/cuts.yaml`, move `start` earlier / `end` later by 0.2–0.4 s
+- **Transcription is slow**
+  - Slower than real time on Intel Macs. The skill transcribes only candidate ranges; use full transcription (`asr.py full`) only when needed
+  - If it is interrupted, running it again resumes where it stopped (`--force` starts over)
 
 ## License
 

@@ -4,11 +4,12 @@
 
 会議や勉強会の録画と文字起こしから、次の3つを作る [Agent Skill](https://agentskills.io/)。名前はラテン語で「整理してまとめたもの」。
 
-| 成果物 | 内容 | 出力 |
-|---|---|---|
-| 議事録 | 決定事項や発表の要点をまとめた文書 | Markdown、指定すれば docx(`<名前>_summary.md`) |
-| グラレコ画像 | 内容を1枚にまとめた手描き風の画像 | PNG(`<名前>_graphic_4k.png`、`_1920.png`) |
-| ダイジェスト動画 | 発言者本人の声の切り抜きに、字幕、ナレーション付きのカード、BGM を付けた数分の動画 | mp4(`<名前>_digest.mp4`、1920x1080) |
+- **議事録**: 決定事項や発表の要点をまとめた文書
+  - Markdown、指定すれば docx(`<名前>_summary.md`)
+- **グラレコ画像**: 内容を1枚にまとめた手描き風の画像
+  - PNG(`<名前>_graphic_4k.png`、`_1920.png`)
+- **ダイジェスト動画**: 発言者本人の声の切り抜きに、字幕、ナレーション付きのカード、BGM を付けた数分の動画
+  - mp4(`<名前>_digest.mp4`、1920x1080)
 
 見た目は4つのスタイルから選べる。`doodle` は手描き風でキャラクターあり(勉強会向け)、`business` は白地・ゴシック体・直線でキャラクターなし(会議や報告向け)、`pop` はカラフルな議事録風で、人物のイラストを Gemini の画像生成で作る(明るく見せたい会議向け)、`mono` は黄・黒・グレーの3色だけの落ち着いた見た目。設定の `style` で切り替え、同じ内容を別のスタイルで出し直せる。
 
@@ -49,16 +50,24 @@ npx skills add tell-k/digesta -g -a claude-code
 /digesta <会議のディレクトリ> [minutes|image|video|all] [--fresh] [直したい内容]
 ```
 
-| 例 | やること |
-|---|---|
-| `/digesta tech-lunch/012` | 議事録、画像、動画を全部作る |
-| `/digesta tech-lunch/012 minutes` | 議事録だけ(数分で終わる) |
-| `/digesta tech-lunch/012 minutes,image` | 議事録と画像 |
-| `/digesta tech-lunch/012 image 章ごとにも分割して` | グラレコに加えて、章ごとの 16:9 画像(`<名前>_graphic_chN.png`)も出す。Slack のスレッドに1章ずつ貼るとき |
-| `/digesta tech-lunch/012 video` | 動画だけ。テキストを直したあとの作り直しもこれ |
-| `/digesta tech-lunch/012 minutes docx でも出して` | 議事録を docx でも出す |
-| `/digesta tech-lunch/012 video BGM を小さく` | 直したい内容を文章で添える |
-| `/digesta tech-lunch/012 --fresh` | 既存のテキストを捨てて、素材から書き直す |
+例:
+
+- `/digesta tech-lunch/012`
+  - 議事録、画像、動画を全部作る
+- `/digesta tech-lunch/012 minutes`
+  - 議事録だけ(数分で終わる)
+- `/digesta tech-lunch/012 minutes,image`
+  - 議事録と画像
+- `/digesta tech-lunch/012 image 章ごとにも分割して`
+  - グラレコに加えて、章ごとの 16:9 画像(`<名前>_graphic_chN.png`)も出す。Slack のスレッドに1章ずつ貼るとき
+- `/digesta tech-lunch/012 video`
+  - 動画だけ。テキストを直したあとの作り直しもこれ
+- `/digesta tech-lunch/012 minutes docx でも出して`
+  - 議事録を docx でも出す
+- `/digesta tech-lunch/012 video BGM を小さく`
+  - 直したい内容を文章で添える
+- `/digesta tech-lunch/012 --fresh`
+  - 既存のテキストを捨てて、素材から書き直す
 
 会議 1 回につき新しいセッションで始めると、トークンの使用量が少なくて済む(長いセッションの続きで始めると、会話の文脈を毎回読み直すぶんが数倍になる)。skill の中では、カット表・グラレコ・検査の 3 工程を、エージェントが対応していればサブエージェントに任せ、文字起こしやフレームの確認は保存したファイルから必要な部分だけ読む作りにしてある(`references/agents.md`)。
 
@@ -72,28 +81,32 @@ npx skills add tell-k/digesta -g -a claude-code
 
 ### 必須
 
-| もの | 用途 | 入れ方 |
-|---|---|---|
-| Agent Skills に対応したエージェント | skill の実行。[Claude Code](https://code.claude.com/) で動作確認。Codex なども使えるはず(シェルコマンドの実行と画像の読み取りができること) | — |
-| macOS | 動作確認した唯一の OS(Intel、Apple シリコン)。Linux は未確認。`say` によるナレーションは macOS のみ | — |
-| [uv](https://docs.astral.sh/uv/) | Python スクリプトの実行。依存(PyYAML、Playwright、Pillow、faster-whisper)は自動で入る | `brew install uv` |
-| [ffmpeg](https://ffmpeg.org/)(libass 付き) | 動画と音声の処理、字幕の焼き込み | `brew install ffmpeg` |
-| 初回のインターネット接続 | フォント(Google Fonts の OFL フォント。`~/.cache/digesta/fonts/` に保存)、描画用の Chromium、ローカル文字起こしのモデルをダウンロードする | — |
+- **Agent Skills に対応したエージェント**
+  - skill の実行。[Claude Code](https://code.claude.com/) で動作確認。Codex なども使えるはず(シェルコマンドの実行と画像の読み取りができること)
+- **macOS**
+  - 動作確認した唯一の OS(Intel、Apple シリコン)。Linux は未確認。`say` によるナレーションは macOS のみ
+- **[uv](https://docs.astral.sh/uv/)**(`brew install uv`)
+  - Python スクリプトの実行。依存(PyYAML、Playwright、Pillow、faster-whisper)は自動で入る
+- **[ffmpeg](https://ffmpeg.org/)(libass 付き)**(`brew install ffmpeg`)
+  - 動画と音声の処理、字幕の焼き込み
+- **初回のインターネット接続**
+  - フォント(Google Fonts の OFL フォント。`~/.cache/digesta/fonts/` に保存)、描画用の Chromium、ローカル文字起こしのモデルをダウンロードする
 
 ### 動画を既定の設定で作るときに必須
 
-| もの | 用途 | ないとき |
-|---|---|---|
-| Gemini API キー | ナレーション(Gemini TTS)と BGM(Lyria)。Lyria は課金が有効なキーが必要 | `external_api: deny`(ナレーションは macOS の `say`、BGM なし)にするか、`narration: voicevox` / `bgm: none` にする |
+- **Gemini API キー**
+  - ナレーション(Gemini TTS)と BGM(Lyria)。Lyria は課金が有効なキーが必要
+  - ないとき: `external_api: deny`(ナレーションは macOS の `say`、BGM なし)にするか、`narration: voicevox` / `bgm: none` にする
 
 議事録とグラレコには API キーは要らない。
 
 ### 任意
 
-| もの | 用途 | 入れ方 |
-|---|---|---|
-| [pandoc](https://pandoc.org/) | docx の文字起こし(Gemini メモ、Teams の文字起こしなど)の取り込み、議事録の docx 出力 | `brew install pandoc` |
-| Docker と [VOICEVOX エンジン](https://voicevox.hiroshiba.jp/) | ローカルで日本語のナレーションを作る(`narration: voicevox`。クレジット表記が必要) | `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest` |
+- **[pandoc](https://pandoc.org/)**(`brew install pandoc`)
+  - docx の文字起こし(Gemini メモ、Teams の文字起こしなど)の取り込み、議事録の docx 出力
+- **Docker と [VOICEVOX エンジン](https://voicevox.hiroshiba.jp/)**
+  - ローカルで日本語のナレーションを作る(`narration: voicevox`。クレジット表記が必要)
+  - 入れ方: `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
 
 ### Gemini API キーの置き方
 
@@ -154,15 +167,20 @@ GEMINI_API_KEY=ここにキー
 
 成果物を見て直したくなったら、正本のテキストを編集して同じコマンドを実行する。エージェントに文章で頼んでもよい。
 
-| 直したいもの | 編集するファイル | 実行 |
-|---|---|---|
-| 議事録の文言 | `digest/minutes.md` | `minutes` |
-| グラレコの文言やレイアウト | `digest/grareco.html` | `image` |
-| ナレーションの言い回し、読み方 | `digest/narration.md` | `video` |
-| 字幕、切り抜く場面、言葉の頭切れ | `digest/cuts.yaml` | `video` |
-| カードの文言(タイトル、まとめ、締めの告知) | `digest/episode.yaml` | `video` |
-| 声、BGM の有無や音量、議事録の形式 | 会議かプロジェクトの `digesta.md` の設定 | `video` / `minutes` |
-| スタイル(手描き風 ↔ ビジネス) | 設定の `style`。グラレコはスタイル用に書き直す(`grareco.<style>.html`) | `image` → `video` |
+- **議事録の文言**
+  - `digest/minutes.md` を直して `minutes`
+- **グラレコの文言やレイアウト**
+  - `digest/grareco.html` を直して `image`
+- **ナレーションの言い回し、読み方**
+  - `digest/narration.md` を直して `video`
+- **字幕、切り抜く場面、言葉の頭切れ**
+  - `digest/cuts.yaml` を直して `video`
+- **カードの文言(タイトル、まとめ、締めの告知)**
+  - `digest/episode.yaml` を直して `video`
+- **声、BGM の有無や音量、議事録の形式**
+  - 会議かプロジェクトの `digesta.md` の設定を直して `video` / `minutes`
+- **スタイル(手描き風 ↔ ビジネス)**
+  - 設定の `style` を変え、グラレコはスタイル用に書き直して(`grareco.<style>.html`)、`image` → `video`
 
 動画は、変わった部分だけを作り直す。ナレーションを1文直せば、そのカードの音声と映像だけがやり直しになる。
 
@@ -278,17 +296,25 @@ uv run <digesta>/skills/digesta/scripts/digest.py video tech-lunch/012
 
 ## 困ったとき
 
-| 症状 | 対処 |
-|---|---|
-| 「外部 API に内容を送る。…まだ確認が取れていない」で止まる | `digesta.md` の `external_api` を `allow` か `deny` にする |
-| 「Gemini の API キーがない」 | プロジェクトのフォルダの `.env` に `GEMINI_API_KEY=...` を書く。`digest.py status` で読み込み元を確認できる |
-| Lyria が HTTP 429 や課金のエラーになる | 課金が有効なキーにするか、`bgm: none` にする |
-| 「Chromium がない」 | `uv run --with playwright playwright install chromium-headless-shell` |
-| 「VOICEVOX エンジンに繋がらない」 | Docker を起動して `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest` |
-| 「録画ファイルが 2 個ある」 | 会議の `digesta.md` の設定に `video: ファイル名` を書く |
-| カードの文言が途中で切れる | YAML の値に「 #」か「: 」がある。引用符で囲む |
-| 言葉の頭や語尾が切れている | `digest/cuts.yaml` の `start` を前へ、`end` を後ろへ 0.2〜0.4 秒ずらす |
-| 文字起こしが遅い | Intel Mac では実時間より遅い。候補区間だけを起こす作りなので、全編の文字起こし(`asr.py full`)は必要なときだけ使う。途中で止まっても、もう一度実行すれば続きから起こす(最初からなら `--force`) |
+- **「外部 API に内容を送る。…まだ確認が取れていない」で止まる**
+  - `digesta.md` の `external_api` を `allow` か `deny` にする
+- **「Gemini の API キーがない」**
+  - プロジェクトのフォルダの `.env` に `GEMINI_API_KEY=...` を書く。`digest.py status` で読み込み元を確認できる
+- **Lyria が HTTP 429 や課金のエラーになる**
+  - 課金が有効なキーにするか、`bgm: none` にする
+- **「Chromium がない」**
+  - `uv run --with playwright playwright install chromium-headless-shell`
+- **「VOICEVOX エンジンに繋がらない」**
+  - Docker を起動して `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
+- **「録画ファイルが 2 個ある」**
+  - 会議の `digesta.md` の設定に `video: ファイル名` を書く
+- **カードの文言が途中で切れる**
+  - YAML の値に「 #」か「: 」がある。引用符で囲む
+- **言葉の頭や語尾が切れている**
+  - `digest/cuts.yaml` の `start` を前へ、`end` を後ろへ 0.2〜0.4 秒ずらす
+- **文字起こしが遅い**
+  - Intel Mac では実時間より遅い。候補区間だけを起こす作りなので、全編の文字起こし(`asr.py full`)は必要なときだけ使う
+  - 途中で止まっても、もう一度実行すれば続きから起こす(最初からなら `--force`)
 
 ## ライセンス
 
