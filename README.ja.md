@@ -2,22 +2,31 @@
 
 [English](README.md) | 日本語
 
-会議や勉強会の録画と文字起こしから、次の3つを作る [Agent Skill](https://agentskills.io/)。名前はラテン語で「整理してまとめたもの」。
+会議や勉強会の録画と文字起こしから、議事録・グラレコ・ダイジェスト動画を作る [Agent Skill](https://agentskills.io/)。名前はラテン語で「整理してまとめたもの」。
 
 - **議事録**: 決定事項や発表の要点をまとめた文書
   - Markdown、指定すれば docx(`<名前>_summary.md`)
-- **グラレコ画像**: 内容を1枚にまとめた手描き風の画像
+- **グラレコ画像**: 内容を1枚にまとめた画像
   - PNG(`<名前>_graphic_4k.png`、`_1920.png`)
 - **ダイジェスト動画**: 発言者本人の声の切り抜きに、字幕、ナレーション付きのカード、BGM を付けた数分の動画
   - mp4(`<名前>_digest.mp4`、1920x1080)
 
-見た目は4つのスタイルから選べる。`doodle` は手描き風でキャラクターあり(勉強会向け)、`business` は白地・ゴシック体・直線でキャラクターなし(会議や報告向け)、`pop` はカラフルな議事録風で、人物のイラストを Gemini の画像生成で作る(明るく見せたい会議向け)、`mono` は黄・黒・グレーの3色だけの落ち着いた見た目。設定の `style` で切り替え、同じ内容を別のスタイルで出し直せる。
+スタイル(設定の `style` で切り替え。同じ内容を別のスタイルで出し直せる):
 
-内容はすべてテキストで持つ。議事録、ナレーション原稿、カット表、ルールを直して同じコマンドを実行すれば、直した箇所に関係する部分だけが作り直される。
+- `doodle`: 手描き風、キャラクターあり(勉強会向け)
+- `business`: 白地・ゴシック体・直線、キャラクターなし(会議や報告向け)
+- `pop`: カラフルな議事録風。人物のイラストは Gemini の画像生成で作る
+- `mono`: 黄・黒・グレーの3色だけ
+
+作り直し:
+
+- 内容はすべてテキストで持つ(議事録、ナレーション原稿、カット表、ルール)
+- テキストを直して同じコマンドを実行すると、関係する部分だけが作り直される
 
 ## インストール
 
-digesta は標準的な Agent Skill(`skills/digesta/SKILL.md`)なので、Claude Code、Codex など skill に対応したエージェントで使える。
+- 標準的な Agent Skill(`skills/digesta/SKILL.md`)なので、Claude Code、Codex など skill に対応したエージェントで使える
+- 1 つのエージェントにはどちらか一方の方法で入れる(両方入れると、Claude Code では skill が 2 つ並ぶ)
 
 ### どのエージェントでも: `npx skills`
 
@@ -38,13 +47,16 @@ npx skills add tell-k/digesta -g -a claude-code
 /plugin install digesta@tell-k
 ```
 
-更新は `/plugin marketplace update tell-k` のあと `/plugin` から。手元のクローンを直接読み込むなら `claude --plugin-dir /path/to/digesta`。
-
-1 つのエージェントにはどちらか一方の方法で入れる。両方入れると、Claude Code では skill が 2 つ並ぶ。
+- 更新: `/plugin marketplace update tell-k` のあと `/plugin` から
+- 手元のクローンを直接読み込む: `claude --plugin-dir /path/to/digesta`
 
 ## 使い方
 
-エージェントで、会議のフォルダを並べたプロジェクトのフォルダ(例: `tech-lunch/`)を開いて skill を呼ぶ。Claude Code では `/digesta`(`npx skills` で入れたとき)か `/digesta:digesta`(プラグインで入れたとき)。Codex などでは skill を指定する(`$digesta` など)か、文章で頼む。
+会議のフォルダを並べたプロジェクトのフォルダ(例: `tech-lunch/`)をエージェントで開いて skill を呼ぶ。
+
+- Claude Code: `/digesta`(`npx skills` で入れたとき)、`/digesta:digesta`(プラグインで入れたとき)
+- Codex など: skill を指定する(`$digesta` など)
+- コマンドを使わず「012 の議事録を作って」「ナレーションを直したから動画を更新して」と頼んでもよい
 
 ```
 /digesta <会議のディレクトリ> [minutes|image|video|all] [--fresh] [直したい内容]
@@ -55,11 +67,11 @@ npx skills add tell-k/digesta -g -a claude-code
 - `/digesta tech-lunch/012`
   - 議事録、画像、動画を全部作る
 - `/digesta tech-lunch/012 minutes`
-  - 議事録だけ(数分で終わる)
+  - 議事録だけ
 - `/digesta tech-lunch/012 minutes,image`
   - 議事録と画像
 - `/digesta tech-lunch/012 image 章ごとにも分割して`
-  - グラレコに加えて、章ごとの 16:9 画像(`<名前>_graphic_chN.png`)も出す。Slack のスレッドに1章ずつ貼るとき
+  - 章ごとの 16:9 画像(`<名前>_graphic_chN.png`)も出す。Slack のスレッドに1章ずつ貼るとき
 - `/digesta tech-lunch/012 video`
   - 動画だけ。テキストを直したあとの作り直しもこれ
 - `/digesta tech-lunch/012 minutes docx でも出して`
@@ -69,22 +81,31 @@ npx skills add tell-k/digesta -g -a claude-code
 - `/digesta tech-lunch/012 --fresh`
   - 既存のテキストを捨てて、素材から書き直す
 
-会議 1 回につき新しいセッションで始めると、トークンの使用量が少なくて済む(長いセッションの続きで始めると、会話の文脈を毎回読み直すぶんが数倍になる)。skill の中では、カット表・グラレコ・検査の 3 工程を、エージェントが対応していればサブエージェントに任せ、文字起こしやフレームの確認は保存したファイルから必要な部分だけ読む作りにしてある(`references/agents.md`)。
+所要時間の目安:
 
-コマンドを使わず、「012 の議事録を作って」「ナレーションを直したから動画を更新して」と頼んでもよい。
+- 議事録: 数分
+- 画像: 10〜20 分
+- 動画(初回): 40〜60 分。素材の読み込みとカット選びを含む。ビルドだけなら 20〜30 分
+- 動画(テキストを直したあとの作り直し): 2〜10 分
+- **文字起こしがないとき**: 先に録画を一から文字起こしするので、録画の長さ以上の時間が上乗せされる
+  - 50 分の会議で、Intel Mac では 1 時間以上かかった。Apple シリコンのほうが速い
+  - Zoom / Teams / Google Meet の文字起こしや字幕があれば、一緒に置いておく
 
-所要時間の目安は、議事録が数分、画像が 10〜20 分、動画が初回 40〜60 分(素材の読み込みとカット選びを含む。ビルドだけなら 20〜30 分)。テキストを直したあとの動画の作り直しは、直した範囲によって 2〜10 分。
+トークンを節約するには:
 
-**文字起こしがないときは**、何よりも先に録画を一から文字起こしするので、録画の長さと同じかそれ以上の時間が上乗せされる(50 分の会議で、Intel Mac では 1 時間以上かかった。Apple シリコンのほうが速い)。Zoom / Teams / Google Meet の文字起こしや字幕があれば、一緒に置いておく。
+- 会議 1 回につき新しいセッションで始める。長いセッションの続きだと、会話の文脈を毎回読み直すぶんが数倍になる
+- skill の中では、カット表・グラレコ・検査の 3 工程をサブエージェントに任せる(エージェントが対応していれば。`references/agents.md`)
+- 文字起こしやフレームは、保存したファイルから必要な部分だけ読む
 
 ## 必要なもの
 
 ### 必須
 
 - **Agent Skills に対応したエージェント**
-  - skill の実行。[Claude Code](https://code.claude.com/) で動作確認。Codex なども使えるはず(シェルコマンドの実行と画像の読み取りができること)
+  - [Claude Code](https://code.claude.com/) で動作確認。Codex なども使えるはず(シェルコマンドの実行と画像の読み取りができること)
 - **macOS**
-  - 動作確認した唯一の OS(Intel、Apple シリコン)。Linux は未確認。`say` によるナレーションは macOS のみ
+  - 動作確認した唯一の OS(Intel、Apple シリコン)。Linux は未確認
+  - `say` によるナレーションは macOS のみ
 - **[uv](https://docs.astral.sh/uv/)**(`brew install uv`)
   - Python スクリプトの実行。依存(PyYAML、Playwright、Pillow、faster-whisper)は自動で入る
 - **[ffmpeg](https://ffmpeg.org/)(libass 付き)**(`brew install ffmpeg`)
@@ -97,8 +118,7 @@ npx skills add tell-k/digesta -g -a claude-code
 - **Gemini API キー**
   - ナレーション(Gemini TTS)と BGM(Lyria)。Lyria は課金が有効なキーが必要
   - ないとき: `external_api: deny`(ナレーションは macOS の `say`、BGM なし)にするか、`narration: voicevox` / `bgm: none` にする
-
-議事録とグラレコには API キーは要らない。
+  - 議事録とグラレコには要らない
 
 ### 任意
 
@@ -110,13 +130,13 @@ npx skills add tell-k/digesta -g -a claude-code
 
 ### Gemini API キーの置き方
 
-プロジェクトのフォルダ(例: `tech-lunch/`)に `.env` を作り、次の1行を書く。
+プロジェクトのフォルダ(例: `tech-lunch/`)の `.env` に書く。
 
 ```
 GEMINI_API_KEY=ここにキー
 ```
 
-キーは次の順に探し、最初に見つかったものを使う。
+探す順(最初に見つかったものを使う):
 
 1. 会議のフォルダの `.env`(例: `tech-lunch/012/.env`)
 2. プロジェクトのフォルダの `.env`(例: `tech-lunch/.env`)
@@ -124,22 +144,26 @@ GEMINI_API_KEY=ここにキー
 4. 環境変数 `GEMINI_API_KEY`
 5. `~/.config/digesta/gemini.env`(キーだけの1行でも、`GEMINI_API_KEY=...` の形でもよい)
 
-`.env` では `GOOGLE_API_KEY` という名前でも読む。どこから読んでいるかは `digest.py status <会議>` の「Gemini API キー」の行で分かる(キー本体は表示しない)。
-
 注意:
 
-- キーをチャットに貼らない。クリップボードから書き込むなら、エージェントとは別のターミナルで `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env` とする。
-- `.env` を git で管理するフォルダに置くなら、`.gitignore` に `.env` を入れる。
-- 他人に渡す成果物(`output/`)に `.env` は含まれない。フォルダごと共有するときは `.env` を外す。
+- `.env` では `GOOGLE_API_KEY` という名前でも読む
+- 読み込み元は `digest.py status <会議>` の「Gemini API キー」の行で分かる(キー本体は表示しない)
+- キーをチャットに貼らない。クリップボードから書くなら、エージェントとは別のターミナルで `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env`
+- git で管理するフォルダなら `.gitignore` に `.env` を入れる
+- `output/` に `.env` は含まれない。フォルダごと共有するときは `.env` を外す
 
 ## 入力
 
-会議1回分のフォルダに、次を置く。
+会議1回分のフォルダに置くもの:
 
 - **録画**(任意): mp4 / mov / m4v / mkv / webm、または音声だけ(m4a / mp3 / wav)
-- **文字起こしやメモ**: docx(Google Meet の Gemini メモなど)、vtt / srt(Zoom や Teams の字幕)、txt、md。なければ、まず録画の全編を手元で一から文字起こしする(faster-whisper)。時間がかかり、話者の区別もつかない
+- **文字起こしやメモ**: docx(Google Meet の Gemini メモなど)、vtt / srt(Zoom や Teams の字幕)、txt、md
+  - ないときは録画の全編を手元で文字起こしする(faster-whisper)。時間がかかり、話者の区別もつかない
 
-文字起こしやメモだけでも、3 つの成果物をすべて作れる。録画(映像)がないときのダイジェスト動画は、本人の声の切り抜きの代わりに、話題ごとのスライドをナレーションと字幕で説明する形になる(`references/video-guide.md`「2b. 録画がないとき」)。
+録画がないとき:
+
+- 文字起こしやメモだけでも、3 つの成果物をすべて作れる
+- 動画は、本人の声の切り抜きの代わりに、話題ごとのスライドをナレーションと字幕で説明する形になる(`references/video-guide.md`「2b. 録画がないとき」)
 
 ## フォルダ構成
 
@@ -161,11 +185,11 @@ GEMINI_API_KEY=ここにキー
     └── output/                成果物
 ```
 
-`digest/` と、プロジェクト・会議の `digesta.md` は、最初に実行したときに作られる。
+- `digest/` と、プロジェクト・会議の `digesta.md` は、最初に実行したときに作られる
 
 ## 直し方
 
-成果物を見て直したくなったら、正本のテキストを編集して同じコマンドを実行する。エージェントに文章で頼んでもよい。
+正本のテキストを編集して同じコマンドを実行する(エージェントに文章で頼んでもよい)。
 
 - **議事録の文言**
   - `digest/minutes.md` を直して `minutes`
@@ -182,9 +206,10 @@ GEMINI_API_KEY=ここにキー
 - **スタイル(手描き風 ↔ ビジネス)**
   - 設定の `style` を変え、グラレコはスタイル用に書き直して(`grareco.<style>.html`)、`image` → `video`
 
-動画は、変わった部分だけを作り直す。ナレーションを1文直せば、そのカードの音声と映像だけがやり直しになる。
+注意:
 
-YAML を手で直すときは、値に「 #」(空白のあとのシャープ)や「: 」を含む場合に引用符で囲む。囲まないと、そこから後ろが欠ける。
+- 動画は変わった部分だけを作り直す。ナレーションを1文直せば、そのカードの音声と映像だけがやり直しになる
+- YAML を手で直すとき、値に「 #」(空白のあとのシャープ)や「: 」を含むなら引用符で囲む。囲まないと、そこから後ろが欠ける
 
 ## ルールと設定
 
@@ -219,30 +244,38 @@ YAML を手で直すときは、値に「 #」(空白のあとのシャープ)�
 
 ## 外部送信
 
-- **議事録と画像**は、外部に何も送らずに作る(素材を読むのはエージェントのセッション自身。そのセッションがモデルの提供元に何を送るかは、使うエージェントによる)。
-- **動画**の既定は、ナレーションが Gemini TTS、BGM が Lyria で、ナレーション原稿(会議の要約 10 文ほど)と音楽の指示が Google に送られる。
-- **pop スタイルのキャラクター**は Gemini の画像生成で作る。送られるのは `digest/chars.yaml` に書いた見た目とポーズの英文だけ(人名や会議の内容は書かない)。
-- プロジェクトで初めて動画を作るときに、送ってよいかを一度だけ尋ねる。答えは `digesta.md` の `external_api` に記録され、以後は尋ねない。
-- `deny` にすると、ナレーションは macOS の音声、BGM なしになる。ローカルで自然な声を使いたいときは `narration: voicevox` にする。
+- **議事録と画像**: 外部に何も送らない
+  - 素材を読むのはエージェントのセッション自身。そのセッションがモデルの提供元に何を送るかは、使うエージェントによる
+- **動画**: 既定ではナレーション原稿(会議の要約 10 文ほど)を Gemini TTS に、音楽の指示を Lyria に送る
+- **pop スタイルのキャラクター**: `digest/chars.yaml` に書いた見た目とポーズの英文だけを Gemini の画像生成に送る(人名や会議の内容は書かない)
+- **確認**: プロジェクトで初めて動画を作るときに一度だけ尋ね、答えを `digesta.md` の `external_api` に記録する
+- **`deny` のとき**: ナレーションは macOS の音声、BGM なし。ローカルで自然な声にするなら `narration: voicevox`
 
 ## 利用規約とクレジット
 
-- **VOICEVOX** を使うときは、動画内か投稿文にクレジット表記(例: `VOICEVOX:四国めたん`)が要る。社内限定・非公開でも例外はない。`credit` に書かないとビルドが止まる。
-- **Gemini TTS / Lyria** には、クレジット表記の義務が見当たらなかった(2026-10 時点)。生成した音声には、聞こえない電子透かし(SynthID)が入る。
-- **フォント**(Yusei Magic、Zen Kurenaido、Klee One、Zen Maru Gothic、Mochiy Pop One)は SIL Open Font License。
-- **rough.js**(手描き風の線)は MIT License。`assets/styles/*/rough.js` に同梱している。
+- **VOICEVOX**: 動画内か投稿文にクレジット表記(例: `VOICEVOX:四国めたん`)が要る
+  - 社内限定・非公開でも例外はない
+  - `credit` が空だとビルドが止まる
+- **Gemini TTS / Lyria**: クレジット表記の義務は見当たらなかった(2026-10 時点)
+  - 生成した音声には、聞こえない電子透かし(SynthID)が入る
+- **フォント**(Yusei Magic、Zen Kurenaido、Klee One、Zen Maru Gothic、Mochiy Pop One): SIL Open Font License
+- **rough.js**(手描き風の線): MIT License。`assets/styles/*/rough.js` に同梱
 
 ## 気をつけること
 
-- 自動の文字起こしは人名を聞き違える。成果物に出た人名のうち、文字起こしだけが根拠のものは「要確認」として報告されるので、目を通す。
-- エージェントは音を聞けない。ナレーションの読みは文字起こしで検証しているが、声の抑揚、BGM の音量、整音の効き具合は耳で確かめる。
-- Gemini TTS は実行のたびに読みや抑揚が少し変わる。同じ原稿でも、作り直すと別のテイクになる。
-- 気に入った BGM は `work/` の外にコピーし、`bgm: そのパス` に固定しておくと、設定や skill の更新で作り直されない。
-- `digest/work/` を消すとキャッシュがなくなり、次の動画ビルドは全部作り直しになる(ナレーションと BGM も再生成される)。
+- 自動の文字起こしは人名を聞き違える。文字起こしだけが根拠の人名は「要確認」として報告されるので、目を通す
+- エージェントは音を聞けない
+  - ナレーションの読みは、文字起こしし直して検証している
+  - 声の抑揚、BGM の音量、整音の効き具合は耳で確かめる
+- Gemini TTS は実行のたびに読みや抑揚が少し変わる。作り直すと別のテイクになる
+- 気に入った BGM は `work/` の外にコピーし、`bgm: そのパス` で固定する。設定や skill の更新で作り直されなくなる
+- `digest/work/` を消すとキャッシュがなくなる。次の動画ビルドは全部作り直し(ナレーションと BGM も再生成)
 
 ## 独自のスタイル
 
-企業のブランド配色など、公開しないスタイルは別のフォルダ(別リポジトリでもよい)に `<スタイル名>/style.yaml` などを置き、プロジェクトの `digesta.md` の設定で探す場所に足す。
+- 企業のブランド配色など、公開しないスタイルは別のフォルダ(別リポジトリでもよい)に置く
+  - 形は同梱のスタイルと同じ(`<スタイル名>/style.yaml` など)
+- プロジェクトの `digesta.md` の設定で、探す場所に足す
 
 ```yaml
 ---
@@ -251,14 +284,16 @@ style: mybrand
 ---
 ```
 
-環境変数 `DIGESTA_STYLES_PATH` でも指定できる。スタイルの作り方は `skills/digesta/references/styles.md` の「新しいスタイルを追加する」。
+- 環境変数 `DIGESTA_STYLES_PATH` でも指定できる
+- 探す順: `styles_path` → `DIGESTA_STYLES_PATH` → 同梱のスタイル
+- 作り方: `skills/digesta/references/styles.md` の「新しいスタイルを追加する」
 
 ## 中身
 
 ```
 digesta/
 ├── .claude-plugin/plugin.json   プラグインの定義
-├── README.md                    このファイル
+├── README.md                    英語版(README.ja.md: このファイル)
 └── skills/digesta/
     ├── SKILL.md                 エージェントが読む手順
     ├── scripts/
@@ -292,7 +327,7 @@ uv run <digesta>/skills/digesta/scripts/digest.py minutes tech-lunch/012 --forma
 uv run <digesta>/skills/digesta/scripts/digest.py video tech-lunch/012
 ```
 
-プロジェクトで最初に実行したときに `digesta.md` が作られるので、会議の種類や表記の決まりを書き足す。
+- 最初に実行したときにプロジェクトの `digesta.md` が作られる。会議の種類や表記の決まりを書き足す
 
 ## 困ったとき
 
@@ -318,4 +353,6 @@ uv run <digesta>/skills/digesta/scripts/digest.py video tech-lunch/012
 
 ## ライセンス
 
-MIT License(`LICENSE`)。同梱の rough.js は MIT License、フォントは初回にダウンロードする SIL Open Font License のもの。
+- MIT License(`LICENSE`)
+- 同梱の rough.js: MIT License
+- 初回にダウンロードするフォント: SIL Open Font License
