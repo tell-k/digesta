@@ -254,3 +254,7 @@ uv run <digesta>/skills/digesta/scripts/digest.py video tech-lunch/012
 | カードの文言が途中で切れる | YAML の値に「 #」か「: 」がある。引用符で囲む |
 | 言葉の頭や語尾が切れている | `digest/cuts.yaml` の `start` を前へ、`end` を後ろへ 0.2〜0.4 秒ずらす |
 | 文字起こしが遅い | Intel Mac では実時間より遅い。候補区間だけを起こす作りなので、全編の文字起こし(`asr.py full`)は必要なときだけ使う |
+
+## ライセンス
+
+MIT License(`LICENSE`)。同梱の rough.js は MIT License、フォントは初回にダウンロードする SIL Open Font License のもの。

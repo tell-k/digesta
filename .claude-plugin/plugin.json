@@ -6,5 +6,12 @@
     "name": "tell-k"
   },
   "repository": "https://github.com/tell-k/digesta",
-  "keywords": ["meeting", "minutes", "graphic-recording", "video", "digest"]
+  "keywords": [
+    "meeting",
+    "minutes",
+    "graphic-recording",
+    "video",
+    "digest"
+  ],
+  "license": "MIT"
 }
