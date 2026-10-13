@@ -36,9 +36,6 @@
   - Python スクリプトの実行。依存(PyYAML、Playwright、Pillow、faster-whisper)は自動で入る
 - **[ffmpeg](https://ffmpeg.org/)(libass 付き)**(`brew install ffmpeg`)
   - 動画と音声の処理、字幕の焼き込み
-
-### 動画を既定の設定で作るときに必須
-
 - **Gemini API キー**
   - ナレーション(Gemini TTS)と BGM(Lyria)。Lyria は課金が有効なキーが必要
   - ないとき: `external_api: deny`(ナレーションは macOS の `say`、BGM なし)にするか、`narration: voicevox` / `bgm: none` にする

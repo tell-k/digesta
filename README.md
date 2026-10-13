@@ -38,9 +38,6 @@ Rebuilding:
   - Runs the Python scripts; their dependencies (PyYAML, Playwright, Pillow, faster-whisper) are installed automatically
 - **[ffmpeg](https://ffmpeg.org/) with libass** (`brew install ffmpeg`)
   - Audio/video processing and burned-in subtitles
-
-### Required for the default video settings
-
 - **Gemini API key**
   - Narration (Gemini TTS) and background music (Lyria). Lyria needs a key with billing enabled
   - Without it: set `external_api: deny` (narration with macOS `say`, no BGM), or `narration: voicevox` / `bgm: none`
