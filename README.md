@@ -2,7 +2,7 @@
 
 English | [日本語](README.ja.md)
 
-A Claude Code plugin (skill) that turns a meeting or study-session recording and its transcript into minutes, a graphic recording, and a digest video. The name is Latin for "things arranged and summarized".
+An [Agent Skill](https://agentskills.io/) that turns a meeting or study-session recording and its transcript into minutes, a graphic recording, and a digest video. The name is Latin for "things arranged and summarized".
 
 | Deliverable | What it is | Output |
 |---|---|---|
@@ -18,7 +18,21 @@ Everything is kept as editable text. Edit the minutes, narration script, cut lis
 
 ## Installation
 
-Add the marketplace [tell-k/agent-skills](https://github.com/tell-k/agent-skills) in Claude Code, then install the plugin.
+digesta is a standard Agent Skill (`skills/digesta/SKILL.md`), so it works with Claude Code, Codex, and other agents that support skills.
+
+### Any agent: `npx skills`
+
+With the [skills CLI](https://github.com/vercel-labs/skills):
+
+```
+npx skills add tell-k/digesta                 # into the current project (choose agents interactively)
+npx skills add tell-k/digesta -g -a codex     # globally for Codex (~/.agents/skills/)
+npx skills add tell-k/digesta -g -a claude-code
+```
+
+### Claude Code: plugin
+
+Add the marketplace [tell-k/agent-skills](https://github.com/tell-k/agent-skills), then install the plugin.
 
 ```
 /plugin marketplace add tell-k/agent-skills
@@ -27,9 +41,11 @@ Add the marketplace [tell-k/agent-skills](https://github.com/tell-k/agent-skills
 
 To update, run `/plugin marketplace update tell-k` and then update from `/plugin`. To load a local clone directly, use `claude --plugin-dir /path/to/digesta`.
 
+Install it only one way per agent; with both, Claude Code shows two copies of the skill.
+
 ## Usage
 
-Open the project folder that contains your meeting folders (e.g. `tech-lunch/`) in Claude Code. Because this is a plugin skill, the command is `/digesta:digesta` (`/digesta` may also work depending on your setup).
+Open the project folder that contains your meeting folders (e.g. `tech-lunch/`) in your agent and invoke the skill. In Claude Code the command is `/digesta` (installed with `npx skills`) or `/digesta:digesta` (installed as a plugin). In Codex and other agents, mention the skill (e.g. `$digesta`) or simply ask for it in plain language.
 
 ```
 /digesta <meeting-dir> [minutes|image|video|all] [--fresh] [what to change]
@@ -48,22 +64,38 @@ Open the project folder that contains your meeting folders (e.g. `tech-lunch/`) 
 
 You can also just ask in plain language, e.g. "make the minutes for 012" or "I edited the narration, update the video".
 
-Start a new session for each meeting to keep Claude Code usage low (continuing a long session re-reads the whole conversation on every turn). Inside the skill, writing the cut list, writing the graphic recording, and checking the result are delegated to subagents, and transcripts and frames are read from saved files only as needed (`references/agents.md`).
+Start a new session for each meeting to keep token usage low (continuing a long session re-reads the whole conversation on every turn). Inside the skill, writing the cut list, writing the graphic recording, and checking the result are delegated to subagents when the agent supports them, and transcripts and frames are read from saved files only as needed (`references/agents.md`).
 
 Rough timings: minutes take a few minutes, the image 10–20 minutes, and the first video 40–60 minutes (including reading the material and choosing cuts; the build alone is 20–30 minutes). Rebuilding the video after a text edit takes 2–10 minutes depending on what changed.
 
+**If there is no transcript**, the recording must be transcribed from scratch before anything else, which adds roughly the length of the recording or more (a 50-minute meeting took over an hour on an Intel Mac; Apple silicon is faster). Bring the transcript or captions from Zoom / Teams / Google Meet whenever you can.
+
 ## Requirements
 
-| Requirement | Used for | Notes |
-|---|---|---|
-| macOS | Tested environment | Tested on an Intel Mac. Transcription is faster on Apple silicon |
-| [uv](https://docs.astral.sh/uv/) | Running the scripts | Python dependencies are installed automatically |
-| ffmpeg | Video and audio processing | Built with libass (the Homebrew build is fine) |
-| pandoc | Importing docx transcripts, exporting minutes as docx | Markdown minutes work without it |
-| Gemini API key | Video narration (Gemini TTS) and background music (Lyria) | Optional. Without it, macOS speech is used and there is no BGM. Lyria requires a key with billing enabled |
-| Docker | Narration with VOICEVOX | Optional |
+### Required
 
-Fonts (five OFL fonts from Google Fonts) and a headless Chromium for rendering are downloaded on first run. Fonts are stored in `~/.cache/digesta/fonts/`.
+| Requirement | Why | Install |
+|---|---|---|
+| An agent that supports Agent Skills | Runs the skill. Tested with [Claude Code](https://code.claude.com/); Codex and others should work (they need to run shell commands and read images) | — |
+| macOS | The only tested OS (Intel and Apple silicon). Linux may work but is untested; narration with `say` is macOS-only | — |
+| [uv](https://docs.astral.sh/uv/) | Runs the Python scripts; their dependencies (PyYAML, Playwright, Pillow, faster-whisper) are installed automatically | `brew install uv` |
+| [ffmpeg](https://ffmpeg.org/) with libass | Audio/video processing and burned-in subtitles | `brew install ffmpeg` |
+| Internet access on first run | Downloads fonts (Google Fonts, OFL) to `~/.cache/digesta/fonts/`, a headless Chromium for rendering, and the local transcription model | — |
+
+### Required for the default video settings
+
+| Requirement | Why | Without it |
+|---|---|---|
+| Gemini API key | Narration (Gemini TTS) and background music (Lyria). Lyria needs a key with billing enabled | Set `external_api: deny` (narration with macOS `say`, no BGM), or `narration: voicevox` / `bgm: none` |
+
+Minutes and the graphic recording need no API key.
+
+### Optional
+
+| Requirement | Why | Install |
+|---|---|---|
+| [pandoc](https://pandoc.org/) | Importing docx transcripts (e.g. Gemini notes, Teams transcripts) and exporting minutes as docx | `brew install pandoc` |
+| Docker + [VOICEVOX engine](https://voicevox.hiroshiba.jp/) | Local Japanese narration (`narration: voicevox`; a credit line is required) | `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest` |
 
 ### Gemini API key
 
@@ -85,7 +117,7 @@ The key is looked up in this order; the first one found wins:
 
 Notes:
 
-- Do not paste the key into the chat. To write it from the clipboard, run `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env` in a terminal outside Claude Code.
+- Do not paste the key into the chat. To write it from the clipboard, run `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env` in a terminal outside the agent.
 - If the folder is under git, add `.env` to `.gitignore`.
 - `.env` is never copied into `output/`. Remove it before sharing the whole folder.
 
@@ -93,8 +125,10 @@ Notes:
 
 Put the following in the folder for one meeting:
 
-- **Recording**: mp4 / mov / m4v / mkv / webm. With audio only (m4a / mp3 / wav), minutes and the image can still be made
-- **Transcript or notes**: docx (e.g. Gemini notes from Google Meet), vtt / srt (Zoom or Teams captions), txt, md. Without one, the whole recording can be transcribed locally (slow, and speakers are not distinguished)
+- **Recording** (optional): mp4 / mov / m4v / mkv / webm, or audio only (m4a / mp3 / wav)
+- **Transcript or notes**: docx (e.g. Gemini notes from Google Meet), vtt / srt (Zoom or Teams captions), txt, md. Without one, the whole recording is first transcribed from scratch on your machine (faster-whisper), which takes a long time and does not distinguish speakers
+
+All three deliverables can be made from a transcript or notes alone. Without a video recording, the digest video uses a slide per topic with narration and subtitles instead of clips of the speakers (`references/video-guide.md`, "2b. 録画がないとき").
 
 ## Folder layout
 
@@ -120,7 +154,7 @@ Put the following in the folder for one meeting:
 
 ## Making changes
 
-Edit the source text and run the same command again, or ask Claude in plain language.
+Edit the source text and run the same command again, or ask the agent in plain language.
 
 | What to change | File to edit | Run |
 |---|---|---|
@@ -169,7 +203,7 @@ Each file starts with a settings block between `---` lines. Meeting settings ove
 
 ## External services
 
-- **Minutes and images** are made without sending anything out (the material is read by your Claude Code session itself).
+- **Minutes and images** are made without sending anything out (the material is read by your agent session itself; what that session sends to its model provider depends on the agent you use).
 - **Video** narration uses Gemini TTS and BGM uses Lyria by default, so the narration script (about ten sentences summarizing the meeting) and the music prompt are sent to Google.
 - **`pop` characters** are generated with Gemini image generation. Only the English appearance/pose descriptions in `digest/chars.yaml` are sent (no names or meeting content).
 - The first time a project builds a video, you are asked once whether sending is OK. The answer is stored as `external_api` in `digesta.md`.
@@ -185,7 +219,7 @@ Each file starts with a settings block between `---` lines. Meeting settings ove
 ## Caveats
 
 - Automatic transcription often gets names wrong. Names that rest only on the transcript are reported as "to be confirmed" (要確認); please check them.
-- Claude cannot hear. Narration pronunciation is verified by re-transcribing, but intonation, BGM level, and audio cleanup need a human ear.
+- The agent cannot hear. Narration pronunciation is verified by re-transcribing, but intonation, BGM level, and audio cleanup need a human ear.
 - Gemini TTS varies slightly between runs; rebuilding gives a different take of the same script.
 - To keep a BGM you like, copy it out of `work/` and pin it with `bgm: <path>` so that setting or skill updates don't regenerate it.
 - Deleting `digest/work/` clears the caches; the next video build starts from scratch (narration and BGM are regenerated).
@@ -210,11 +244,11 @@ digesta/
 ├── .claude-plugin/plugin.json   Plugin manifest
 ├── README.md                    This file (README.ja.md: Japanese)
 └── skills/digesta/
-    ├── SKILL.md                 Instructions Claude follows
+    ├── SKILL.md                 Instructions the agent follows
     ├── scripts/
     │   ├── digest.py            Build tool (init / status / minutes / image / video / narration / bgm / voices / sheet / grid / crop / frames / plan)
     │   ├── asr.py               Transcription (finding cut points, verifying audio)
-    │   └── usage.py             Token usage report for a session
+    │   └── usage.py             Token usage report for a session (Claude Code only)
     ├── references/
     │   ├── rules.md             Common rules
     │   ├── agents.md            Work delegated to subagents

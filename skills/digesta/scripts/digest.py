@@ -227,10 +227,13 @@ class Ep:
                 f"ユーザーに「ナレーション原稿と音楽の指示を Google(Gemini)に送ってよいか」を確認し、答えを {self.digesta} の冒頭の設定に\n"
                 "external_api: allow(送ってよい)か external_api: deny(送らない。macOS の音声・BGM なしになる)として書いてから、もう一度実行する")
 
-    def media(self, kinds=VIDEO_EXT):
+    def media(self, kinds=VIDEO_EXT, required=True):
+        """録画(または音声)のファイル。required=False なら、ないときは None を返す"""
         if self.cfg.get("video"):
             return self.root / self.cfg["video"]
         vs = sorted(p for p in self.root.iterdir() if p.suffix.lower() in kinds)
+        if not vs and not required:
+            return None
         if len(vs) != 1:
             die(f"録画ファイルが {len(vs)} 個ある({'/'.join(kinds)})。会議の digesta.md の設定に video: ファイル名 を書いて指定する")
         return vs[0]
@@ -274,10 +277,13 @@ class Ep:
             ch.setdefault("who", ""); ch.setdefault("face", [])
             if ch.get("color") not in ("coral", "magenta", "orange", "teal", "blue", "purple", "green"):
                 die(f"episode.yaml: {i + 1}章の color は coral/magenta/orange/teal/blue/purple/green のどれか")
-            ch["topics"] = [{"title": t["title"], "icons": t.get("icons", [])} for t in cuts.get(i + 1, [])]
+            ch["topics"] = [{"title": t["title"], "icons": t.get("icons", []), **({"slide": t["slide"]} if t.get("slide") else {})} for t in cuts.get(i + 1, [])]
         ep.setdefault("label", self.name); ep.setdefault("number", ""); ep.setdefault("badge", "ダイジェスト")
         ep.setdefault("series", ""); ep.setdefault("date", "")
         ep["credit"] = self.cfg["credit"]
+        # 録画がない話題のスライド(lib/slide.html)が使う、スタイルの字幕フォントと背景色
+        ep["slide_font"] = re.sub(r"\s+(Thin|Light|Regular|Medium|SemiBold|Bold|ExtraBold|Black)$", "", str(self.style.get("subtitle_font", "sans-serif")))
+        ep["slide_paper"] = "#" + self.paper[2:] if self.paper.startswith("0x") else self.paper
         return ep
 
     def cuts(self, required=True):
@@ -330,11 +336,13 @@ def sync_lib(ep, with_episode=True):
     ensure_fonts(ep.fonts)
     ep.lib.mkdir(parents=True, exist_ok=True)
     for f in ep.lib.iterdir():  # 別のスタイルの残骸を消す
-        if f.name not in ("fonts.css", "episode.js", "icons.js") and not (ep.style_dir / f.name).exists():
+        if f.name not in ("fonts.css", "episode.js", "icons.js", "slide.html") and not (ep.style_dir / f.name).exists():
             f.unlink()
     for f in ep.style_dir.iterdir():
         if not (ep.lib / f.name).exists() or (ep.lib / f.name).read_bytes() != f.read_bytes():
             shutil.copy(f, ep.lib / f.name)
+    if not (ep.style_dir / "slide.html").exists():  # 録画がない話題のスライド。スタイルに無ければ共通の雛形を使う
+        shutil.copy(SKILL / "assets/slide.html", ep.lib / "slide.html")
     css = "".join(f'@font-face{{font-family:"{fam}";font-weight:{w};src:url("{(FONT_CACHE / fn).as_uri()}")}}\n' for fn, (_, fam, w) in ep.fonts.items())
     (ep.lib / "fonts.css").write_text(css)
     # 会議ごとの追加イラスト: icons.<style>.js があればそれを、なければ icons.js を lib/icons.js として使う
@@ -379,7 +387,12 @@ def cmd_init(ep, a):
     if not ep.digesta.exists() and not (ep.root.parent / "digest-rules.md").exists():
         shutil.copy(tpl / "digesta.md", ep.digesta); print("作成:", ep.digesta, "(プロジェクト共通の設定・ルール・用語集)")
     sync_lib(ep, with_episode=False)
-    v = ep.media(VIDEO_EXT + AUDIO_EXT)
+    v = ep.media(VIDEO_EXT + AUDIO_EXT, required=False)
+    if v is None:
+        print("録画: なし。議事録と画像は文字起こしやメモから作れる。動画は、cuts.yaml の話題に clips の代わりに slide を書けば、スライドとナレーションで作れる")
+        import_transcripts(ep)
+        print("次: 素材とルールを読んでから、minutes.md / grareco.html / episode.yaml / cuts.yaml / narration.md を書く")
+        return
     info = json.loads(subprocess.check_output(["ffprobe", "-v", "error", "-show_entries", "format=duration:stream=codec_type,width,height,r_frame_rate", "-of", "json", str(v)]))
     vs = next((s for s in info["streams"] if s["codec_type"] == "video"), None)
     print(f"録画: {v.name} / {ts(float(info['format']['duration']))}" + (f" / {vs['width']}x{vs['height']} / {vs['r_frame_rate']} fps" if vs else " / 音声のみ(動画は作れない。議事録とグラレコは作れる)"))
@@ -918,6 +931,61 @@ def build_topic(ep, e, ch, t, topic, frame, seg, force):
     return off, True
 
 
+def slide_name(ch, t):
+    """録画がない話題のナレーション原稿の見出し名(narration.md の「## t1-1」)。章も話題も 1 から数える"""
+    return f"t{ch}-{t + 1}"
+
+
+def sub_lines(text):
+    """ナレーションの原稿を字幕の単位(2 行・1 行 28 字まで)に分ける"""
+    out = []
+    for sent in [x for x in re.split(r"(?<=[。！？!?])", text) if x.strip()]:
+        while len(sent) > 56:  # 長い文は、真ん中に近い読点で分ける
+            cut = min((m.end() for m in re.finditer("、", sent[:56])), key=lambda i: abs(i - len(sent) / 2), default=56)
+            out.append(sent[:cut]); sent = sent[cut:]
+        out.append(sent)
+    def wrap(x):
+        if len(x) <= 28:
+            return x
+        cut = min((m.end() for m in re.finditer("[、。]", x[:-1])), key=lambda i: abs(i - len(x) / 2), default=len(x) // 2)
+        return x[:cut] + "\\N" + x[cut:]
+    return [wrap(x.strip()) for x in out if x.strip()]
+
+
+def build_slide_topic(ep, e, ch, t, topic, frame, slide_png, seg, narr, force):
+    """録画がない話題: スライドの画像を枠に入れ、ナレーションを声と字幕にする"""
+    name = slide_name(ch, t)
+    wav = ep.work / "narr" / f"{name}.wav"
+    text = narr.get(name, "")
+    has = bool(text) and wav.exists()
+    nd = dur_of(wav) if has else max(len(text) / 6.2, 4.0)
+    lead, tail = 0.4, 0.8
+    d = lead + nd + tail
+    key = sha("slide", Path(str(frame) + ".key").read_text(), Path(str(slide_png) + ".key").read_text(), text,
+              hashlib.sha256(wav.read_bytes()).hexdigest() if has else "", ep.ass_head, ep.paper, ep.fps)
+    out = seg / f"t{ch}{t}.mkv"
+    if not force and fresh(out, key):
+        return dur_of(out), False
+    ass, lines = ep.ass_head, sub_lines(text)
+    total_chars = sum(len(x) for x in lines) or 1
+    at = lead
+    for x in lines:  # 字幕の表示時間は文字数で按分する
+        span = nd * len(x) / total_chars
+        ass += f"Dialogue: 0,{ass_ts(at)},{ass_ts(min(at + span, d - 0.05))},Sub,,0,0,0,,{{\\pos(960,972)}}{x}\n"
+        at += span
+    (seg / f"t{ch}{t}.ass").write_text(ass)
+    audio = ["-i", wav] if has else ["-f", "lavfi", "-t", f"{d:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
+    af = (f"[1:a]aresample=48000,loudnorm=I=-17:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB,adelay={int(lead * 1000)}:all=1,apad[a]"
+          if has else "[1:a]anull[a]")
+    fc = (f"[0:v]scale=1344:756:flags=lanczos,format=gbrp,fps={ep.fps},pad=1920:1080:44:104:color={ep.paper}[pv];"
+          f"[pv][2:v]overlay=0:0:format=gbrp,format=rgb24,subtitles=seg/t{ch}{t}.ass:fontsdir={FONT_CACHE},format=rgb24,"
+          f"fade=t=in:st=0:d=0.3:color={ep.paper},fade=t=out:st={d - 0.3:.3f}:d=0.3:color={ep.paper},{TOYUV}[v];{af}")
+    run(["ffmpeg", "-v", "error", "-y", "-loop", "1", "-framerate", ep.fps, "-t", f"{d:.3f}", "-i", slide_png, *audio, "-i", frame,
+         "-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-t", f"{d:.3f}", *enc(ep), out], cwd=ep.work)
+    mark(out, key)
+    return d, True
+
+
 def check_texts(ep):
     """episode.yaml / cuts.yaml / narration.md の誤りを集める。(エラー一覧, 警告一覧) を返す。
     ビルドで止まる誤り(YAML が読めない、章番号の不一致)と、できあがりがおかしくなる誤り(字幕が区間の外、原稿の見出し漏れ)を、ビルド前に出す"""
@@ -963,6 +1031,15 @@ def check_texts(ep):
         for t in c.get("topics") or []:
             if len(str(t.get("title", ""))) > 14:
                 warns.append(f"cuts.yaml: {n}章「{t.get('title')}」の題名が長い(目安 12 字)")
+            if not t.get("clips") and not t.get("slide"):
+                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips も slide もない")
+            if t.get("clips") and t.get("slide"):
+                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips と slide の両方がある(どちらか一方)")
+            if t.get("clips") and ep.media(VIDEO_EXT, required=False) is None:
+                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips があるが、録画がない(録画がないなら slide で書く)")
+            sl = t.get("slide")
+            if sl is not None and (not isinstance(sl, dict) or not (sl.get("heading") or sl.get("points"))):
+                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」の slide に heading も points もない")
             for cl in t.get("clips") or []:
                 try:
                     a0, b0 = float(cl["start"]), float(cl["end"])
@@ -987,6 +1064,8 @@ def check_texts(ep):
                         warns.append(f"cuts.yaml: {n}章 字幕「{txt[:14]}…」が 3 行以上")
     cards, _ = ep.narration()
     want = ["opening"] + [x for i in range(1, len(chapters) + 1) for x in ([f"ch{i}"] + ([f"recap{i}"] if (chapters[i - 1].get("recap")) else []))]
+    for c in (cuts if isinstance(cuts, list) else []):
+        want += [slide_name(int(c.get("chapter", 0)), i) for i, t in enumerate(c.get("topics") or []) if t.get("slide")]
     want += ["ending"] if e.get("ending") else []
     want += ["outro"] if e.get("outro") else []
     for w in want:
@@ -1027,6 +1106,9 @@ def cmd_plan(ep, a):
         n = ch["n"]
         d, how = card_len(f"ch{n}", 0.7); add(f"ch{n}", d, how)
         for t, topic in enumerate(cuts.get(n, [])):
+            if topic.get("slide"):
+                d, how = card_len(slide_name(n, t), 0.8); add(f"t{n}{t}", d - 0.5, how + " slide")
+                continue
             d = sum(float(c["end"]) - float(c["start"]) for c in topic.get("clips") or [])
             add(f"t{n}{t}", d)
         if ch.get("recap"):
@@ -1039,7 +1121,7 @@ def cmd_plan(ep, a):
     if e.get("outro"):
         d, how = card_len("outro", 3.0); add("outro", d, how)
     print("\n".join(rows))
-    talk = sum(float(c["end"]) - float(c["start"]) for n in cuts for t in cuts[n] for c in t.get("clips") or [])
+    talk = sum(float(r.split()[2].rstrip("s*")) for r in rows if r.split()[1].startswith("t") and r.split()[1][1:].isdigit())
     print(f"見積もり: 全体 {ts(total)}(本編 {ts(talk)}、カード {ts(total - talk)})。* は音声未生成のため文字数からの推定(±15%)")
     if warns:
         print(f"注意 {len(warns)} 件(上に表示)。誤りはなし。video を実行できる")
@@ -1102,7 +1184,18 @@ def cmd_video(ep, a):
                 pg_.goto((ep.lib / "frame.html").as_uri() + f"#ch={ch}&topic={t}"); pg_.reload()
                 pg_.wait_for_function("window.READY === true")
                 pg_.screenshot(path=str(frame), omit_background=True); mark(frame, fkey)
-            d, did = build_topic(ep, e, ch, t, cuts[ch][t], frame, seg, a.force)
+            if cuts[ch][t].get("slide"):
+                slide_png = fdir / f"slide_{ch}_{t}.png"
+                skey = sha("slide", libkey, cuts[ch][t]["slide"], e["chapters"][ch - 1].get("color"), e.get("slide_font"), e.get("slide_paper"))
+                if a.force or not fresh(slide_png, skey):
+                    page()
+                    sp = new_page(b, 1344, 756)
+                    sp.goto((ep.lib / "slide.html").as_uri() + f"#ch={ch}&topic={t}")
+                    sp.wait_for_function("window.READY === true")
+                    sp.screenshot(path=str(slide_png)); sp.close(); mark(slide_png, skey)
+                d, did = build_slide_topic(ep, e, ch, t, cuts[ch][t], frame, slide_png, seg, narr, a.force)
+            else:
+                d, did = build_topic(ep, e, ch, t, cuts[ch][t], frame, seg, a.force)
             if did:
                 made.append(f"t{ch}{t}"); print(f"本編 {ch}-{t + 1}「{cuts[ch][t]['title']}」 {d:.1f}s")
             order.append(f"t{ch}{t}")
@@ -1239,7 +1332,10 @@ def cmd_status(ep, a):
     if (ep.digest / "chars.yaml").exists():
         have = sorted(p.stem for p in (ep.digest / "chars").glob("*.jpg")) if (ep.digest / "chars").exists() else []
         print(f"  キャラクター画像: {', '.join(have) or 'なし'}(定義 {len(chars_spec(ep))} 体)")
-    for label, f in [("録画", ep.media(VIDEO_EXT + AUDIO_EXT)), ("digesta.md", ep.digesta_local), ("minutes.md", ep.digest / "minutes.md"), ("グラレコ HTML", ep.grareco_src),
+    rec = ep.media(VIDEO_EXT + AUDIO_EXT, required=False)
+    if rec is None:
+        print("  × 録画: (なし。動画は cuts.yaml の slide で作る)")
+    for label, f in [*([("録画", rec)] if rec else []), ("digesta.md", ep.digesta_local), ("minutes.md", ep.digest / "minutes.md"), ("グラレコ HTML", ep.grareco_src),
                      ("episode.yaml", ep.digest / "episode.yaml"), ("cuts.yaml", ep.digest / "cuts.yaml"), ("narration.md", ep.digest / "narration.md"),
                      ("議事録", ep.doc("minutes", "md") if ep.doc("minutes", "md").exists() else ep.doc("minutes", "docx")), ("画像 4K", ep.image("4k")), ("動画", ep.movie), ("サムネイル", ep.thumb)]:
         print(f"  {'○' if f.exists() else '×'} {label}: {f.relative_to(ep.root) if f.exists() else '(なし)'}")

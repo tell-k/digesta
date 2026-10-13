@@ -2,7 +2,7 @@
 
 [English](README.md) | 日本語
 
-会議や勉強会の録画と文字起こしから、次の3つを作る Claude Code のプラグイン(skill)。名前はラテン語で「整理してまとめたもの」。
+会議や勉強会の録画と文字起こしから、次の3つを作る [Agent Skill](https://agentskills.io/)。名前はラテン語で「整理してまとめたもの」。
 
 | 成果物 | 内容 | 出力 |
 |---|---|---|
@@ -16,7 +16,21 @@
 
 ## インストール
 
-Claude Code で、マーケットプレイス [tell-k/agent-skills](https://github.com/tell-k/agent-skills) を追加してからインストールする。
+digesta は標準的な Agent Skill(`skills/digesta/SKILL.md`)なので、Claude Code、Codex など skill に対応したエージェントで使える。
+
+### どのエージェントでも: `npx skills`
+
+[skills CLI](https://github.com/vercel-labs/skills) で入れる。
+
+```
+npx skills add tell-k/digesta                 # 今のプロジェクトに入れる(エージェントは対話で選ぶ)
+npx skills add tell-k/digesta -g -a codex     # Codex 用に全体へ(~/.agents/skills/)
+npx skills add tell-k/digesta -g -a claude-code
+```
+
+### Claude Code: プラグイン
+
+マーケットプレイス [tell-k/agent-skills](https://github.com/tell-k/agent-skills) を追加してからインストールする。
 
 ```
 /plugin marketplace add tell-k/agent-skills
@@ -25,9 +39,11 @@ Claude Code で、マーケットプレイス [tell-k/agent-skills](https://gith
 
 更新は `/plugin marketplace update tell-k` のあと `/plugin` から。手元のクローンを直接読み込むなら `claude --plugin-dir /path/to/digesta`。
 
+1 つのエージェントにはどちらか一方の方法で入れる。両方入れると、Claude Code では skill が 2 つ並ぶ。
+
 ## 使い方
 
-Claude Code で、会議のフォルダを並べたプロジェクトのフォルダ(例: `tech-lunch/`)を開いて実行する。プラグインの skill なので、コマンド名は `/digesta:digesta`(環境によっては `/digesta` でも呼べる)。
+エージェントで、会議のフォルダを並べたプロジェクトのフォルダ(例: `tech-lunch/`)を開いて skill を呼ぶ。Claude Code では `/digesta`(`npx skills` で入れたとき)か `/digesta:digesta`(プラグインで入れたとき)。Codex などでは skill を指定する(`$digesta` など)か、文章で頼む。
 
 ```
 /digesta <会議のディレクトリ> [minutes|image|video|all] [--fresh] [直したい内容]
@@ -44,24 +60,40 @@ Claude Code で、会議のフォルダを並べたプロジェクトのフォ�
 | `/digesta tech-lunch/012 video BGM を小さく` | 直したい内容を文章で添える |
 | `/digesta tech-lunch/012 --fresh` | 既存のテキストを捨てて、素材から書き直す |
 
-会議 1 回につき新しいセッションで始めると、Claude Code の使用量が少なくて済む(長いセッションの続きで始めると、会話の文脈を毎回読み直すぶんが数倍になる)。skill の中では、カット表・グラレコ・検査の 3 工程をサブエージェントに任せ、文字起こしやフレームの確認は保存したファイルから必要な部分だけ読む作りにしてある(`references/agents.md`)。
+会議 1 回につき新しいセッションで始めると、トークンの使用量が少なくて済む(長いセッションの続きで始めると、会話の文脈を毎回読み直すぶんが数倍になる)。skill の中では、カット表・グラレコ・検査の 3 工程を、エージェントが対応していればサブエージェントに任せ、文字起こしやフレームの確認は保存したファイルから必要な部分だけ読む作りにしてある(`references/agents.md`)。
 
 コマンドを使わず、「012 の議事録を作って」「ナレーションを直したから動画を更新して」と頼んでもよい。
 
 所要時間の目安は、議事録が数分、画像が 10〜20 分、動画が初回 40〜60 分(素材の読み込みとカット選びを含む。ビルドだけなら 20〜30 分)。テキストを直したあとの動画の作り直しは、直した範囲によって 2〜10 分。
 
+**文字起こしがないときは**、何よりも先に録画を一から文字起こしするので、録画の長さと同じかそれ以上の時間が上乗せされる(50 分の会議で、Intel Mac では 1 時間以上かかった。Apple シリコンのほうが速い)。Zoom / Teams / Google Meet の文字起こしや字幕があれば、一緒に置いておく。
+
 ## 必要なもの
 
-| もの | 用途 | 備考 |
-|---|---|---|
-| macOS | 動作確認した環境 | Intel Mac で確認。文字起こしは Apple シリコンのほうが速い |
-| [uv](https://docs.astral.sh/uv/) | スクリプトの実行 | Python の依存は自動で入る |
-| ffmpeg | 動画と音声の処理 | libass 付き(Homebrew 版でよい) |
-| pandoc | docx の文字起こしの取り込み、議事録の docx 出力 | なくても Markdown の議事録は作れる |
-| Gemini API キー | 動画のナレーション(Gemini TTS)と BGM(Lyria) | 任意。なければ macOS の音声、BGM なしで作る。Lyria は課金が有効なキーが必要 |
-| Docker | VOICEVOX でナレーションを作るとき | 任意 |
+### 必須
 
-フォント(Google Fonts の OFL フォント5種)と描画用の Chromium は、初回に自動でダウンロードする。フォントは `~/.cache/digesta/fonts/` に置かれる。
+| もの | 用途 | 入れ方 |
+|---|---|---|
+| Agent Skills に対応したエージェント | skill の実行。[Claude Code](https://code.claude.com/) で動作確認。Codex なども使えるはず(シェルコマンドの実行と画像の読み取りができること) | — |
+| macOS | 動作確認した唯一の OS(Intel、Apple シリコン)。Linux は未確認。`say` によるナレーションは macOS のみ | — |
+| [uv](https://docs.astral.sh/uv/) | Python スクリプトの実行。依存(PyYAML、Playwright、Pillow、faster-whisper)は自動で入る | `brew install uv` |
+| [ffmpeg](https://ffmpeg.org/)(libass 付き) | 動画と音声の処理、字幕の焼き込み | `brew install ffmpeg` |
+| 初回のインターネット接続 | フォント(Google Fonts の OFL フォント。`~/.cache/digesta/fonts/` に保存)、描画用の Chromium、ローカル文字起こしのモデルをダウンロードする | — |
+
+### 動画を既定の設定で作るときに必須
+
+| もの | 用途 | ないとき |
+|---|---|---|
+| Gemini API キー | ナレーション(Gemini TTS)と BGM(Lyria)。Lyria は課金が有効なキーが必要 | `external_api: deny`(ナレーションは macOS の `say`、BGM なし)にするか、`narration: voicevox` / `bgm: none` にする |
+
+議事録とグラレコには API キーは要らない。
+
+### 任意
+
+| もの | 用途 | 入れ方 |
+|---|---|---|
+| [pandoc](https://pandoc.org/) | docx の文字起こし(Gemini メモ、Teams の文字起こしなど)の取り込み、議事録の docx 出力 | `brew install pandoc` |
+| Docker と [VOICEVOX エンジン](https://voicevox.hiroshiba.jp/) | ローカルで日本語のナレーションを作る(`narration: voicevox`。クレジット表記が必要) | `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest` |
 
 ### Gemini API キーの置き方
 
@@ -83,7 +115,7 @@ GEMINI_API_KEY=ここにキー
 
 注意:
 
-- キーをチャットに貼らない。クリップボードから書き込むなら、Claude Code とは別のターミナルで `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env` とする。
+- キーをチャットに貼らない。クリップボードから書き込むなら、エージェントとは別のターミナルで `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env` とする。
 - `.env` を git で管理するフォルダに置くなら、`.gitignore` に `.env` を入れる。
 - 他人に渡す成果物(`output/`)に `.env` は含まれない。フォルダごと共有するときは `.env` を外す。
 
@@ -91,8 +123,10 @@ GEMINI_API_KEY=ここにキー
 
 会議1回分のフォルダに、次を置く。
 
-- **録画**: mp4 / mov / m4v / mkv / webm。音声だけ(m4a / mp3 / wav)でも議事録と画像は作れる
-- **文字起こしやメモ**: docx(Google Meet の Gemini メモなど)、vtt / srt(Zoom や Teams の字幕)、txt、md。なくても、ローカルで全編を文字起こしして作れる(時間がかかり、話者の区別はつかない)
+- **録画**(任意): mp4 / mov / m4v / mkv / webm、または音声だけ(m4a / mp3 / wav)
+- **文字起こしやメモ**: docx(Google Meet の Gemini メモなど)、vtt / srt(Zoom や Teams の字幕)、txt、md。なければ、まず録画の全編を手元で一から文字起こしする(faster-whisper)。時間がかかり、話者の区別もつかない
+
+文字起こしやメモだけでも、3 つの成果物をすべて作れる。録画(映像)がないときのダイジェスト動画は、本人の声の切り抜きの代わりに、話題ごとのスライドをナレーションと字幕で説明する形になる(`references/video-guide.md`「2b. 録画がないとき」)。
 
 ## フォルダ構成
 
@@ -118,7 +152,7 @@ GEMINI_API_KEY=ここにキー
 
 ## 直し方
 
-成果物を見て直したくなったら、正本のテキストを編集して同じコマンドを実行する。Claude に文章で頼んでもよい。
+成果物を見て直したくなったら、正本のテキストを編集して同じコマンドを実行する。エージェントに文章で頼んでもよい。
 
 | 直したいもの | 編集するファイル | 実行 |
 |---|---|---|
@@ -167,7 +201,7 @@ YAML を手で直すときは、値に「 #」(空白のあとのシャープ)�
 
 ## 外部送信
 
-- **議事録と画像**は、外部に何も送らずに作る(素材を読むのは、この Claude Code のセッション自身)。
+- **議事録と画像**は、外部に何も送らずに作る(素材を読むのはエージェントのセッション自身。そのセッションがモデルの提供元に何を送るかは、使うエージェントによる)。
 - **動画**の既定は、ナレーションが Gemini TTS、BGM が Lyria で、ナレーション原稿(会議の要約 10 文ほど)と音楽の指示が Google に送られる。
 - **pop スタイルのキャラクター**は Gemini の画像生成で作る。送られるのは `digest/chars.yaml` に書いた見た目とポーズの英文だけ(人名や会議の内容は書かない)。
 - プロジェクトで初めて動画を作るときに、送ってよいかを一度だけ尋ねる。答えは `digesta.md` の `external_api` に記録され、以後は尋ねない。
@@ -183,7 +217,7 @@ YAML を手で直すときは、値に「 #」(空白のあとのシャープ)�
 ## 気をつけること
 
 - 自動の文字起こしは人名を聞き違える。成果物に出た人名のうち、文字起こしだけが根拠のものは「要確認」として報告されるので、目を通す。
-- Claude は音を聞けない。ナレーションの読みは文字起こしで検証しているが、声の抑揚、BGM の音量、整音の効き具合は耳で確かめる。
+- エージェントは音を聞けない。ナレーションの読みは文字起こしで検証しているが、声の抑揚、BGM の音量、整音の効き具合は耳で確かめる。
 - Gemini TTS は実行のたびに読みや抑揚が少し変わる。同じ原稿でも、作り直すと別のテイクになる。
 - 気に入った BGM は `work/` の外にコピーし、`bgm: そのパス` に固定しておくと、設定や skill の更新で作り直されない。
 - `digest/work/` を消すとキャッシュがなくなり、次の動画ビルドは全部作り直しになる(ナレーションと BGM も再生成される)。
@@ -208,11 +242,11 @@ digesta/
 ├── .claude-plugin/plugin.json   プラグインの定義
 ├── README.md                    このファイル
 └── skills/digesta/
-    ├── SKILL.md                 Claude が読む手順
+    ├── SKILL.md                 エージェントが読む手順
     ├── scripts/
     │   ├── digest.py            ビルドツール(init / status / minutes / image / video / narration / bgm / voices / sheet / grid / crop / frames / plan)
     │   ├── asr.py               文字起こし(カット点の特定、音声の検証)
-    │   └── usage.py             セッションのトークン使用量の集計
+    │   └── usage.py             セッションのトークン使用量の集計(Claude Code のみ)
     ├── references/
     │   ├── rules.md             共通ルール
     │   ├── agents.md            サブエージェントに任せる工程

@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- 録画がない話題で、本編の枠に映すスライド(1344x756)。#ch=1&topic=0 で章と話題を指定し、cuts.yaml の slide を描く。
+     どのスタイルでも使う共通の雛形。スタイルのフォルダに slide.html があれば、そちらが使われる -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; }
+  body { width:1344px; height:756px; overflow:hidden; background:var(--paper); color:#2b2f36; font-family:var(--font), sans-serif; }
+  #s { position:absolute; inset:0; padding:64px 80px 56px 96px; display:flex; flex-direction:column; }
+  #s::before { content:""; position:absolute; left:0; top:0; bottom:0; width:20px; background:var(--c); }
+  .label { align-self:flex-start; font-size:26px; font-weight:700; color:#fff; background:var(--c); padding:6px 18px; border-radius:6px; margin-bottom:22px; }
+  h1 { font-size:58px; line-height:1.3; margin:0 0 34px; font-weight:700; }
+  h1 mark, li mark { background:none; color:var(--c); }
+  ul { margin:0; padding:0; display:flex; flex-direction:column; gap:22px; }
+  li { list-style:none; font-size:38px; line-height:1.4; padding-left:44px; position:relative; }
+  li::before { content:""; position:absolute; left:4px; top:.5em; width:18px; height:18px; border-radius:50%; background:var(--c); }
+  .note { margin-top:auto; font-size:26px; color:#6b7280; }
+</style>
+<div id="s"></div>
+<script src="episode.js"></script>
+<script>
+  const COLORS = { coral: "#f2665b", magenta: "#d6338a", orange: "#ee8a1c", teal: "#1f9e95", blue: "#2f7bd8", purple: "#7a5bd6", green: "#4fa35a" };
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const ch = EP.chapters[(+q.ch || 1) - 1], slide = ch.topics[+q.topic || 0].slide || {};
+  const root = document.documentElement.style;
+  root.setProperty("--c", COLORS[ch.color] || "#2f7bd8");
+  root.setProperty("--paper", EP.slide_paper || "#ffffff");
+  root.setProperty("--font", `"${EP.slide_font || "sans-serif"}"`);
+  document.getElementById("s").innerHTML =
+    (slide.label ? `<div class="label">${slide.label}</div>` : "") +
+    (slide.heading ? `<h1>${slide.heading}</h1>` : "") +
+    `<ul>${(slide.points || []).map((p) => `<li>${p}</li>`).join("")}</ul>` +
+    (slide.note ? `<div class="note">${slide.note}</div>` : "");
+  // 入りきらないときは文字を縮める
+  const s = document.getElementById("s");
+  for (let k = 1; k > 0.6 && s.scrollHeight > s.clientHeight + 1; k -= 0.04) s.style.fontSize = "", s.querySelectorAll("h1,li,.label,.note").forEach((el) => (el.style.zoom = k));
+  document.fonts.ready.then(() => { window.READY = true; });
+</script>
+</html>
