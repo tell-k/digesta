@@ -25,6 +25,35 @@ Rebuilding:
 - Everything is kept as editable text (minutes, narration script, cut list, rules)
 - Edit the text and run the same command again; only the affected parts are rebuilt
 
+## Requirements
+
+### Required
+
+- **An agent that supports Agent Skills**
+  - Tested with [Claude Code](https://code.claude.com/); Codex and others should work (they need to run shell commands and read images)
+- **macOS**
+  - The only tested OS (Intel and Apple silicon). Linux may work but is untested
+  - Narration with `say` is macOS-only
+- **[uv](https://docs.astral.sh/uv/)** (`brew install uv`)
+  - Runs the Python scripts; their dependencies (PyYAML, Playwright, Pillow, faster-whisper) are installed automatically
+- **[ffmpeg](https://ffmpeg.org/) with libass** (`brew install ffmpeg`)
+  - Audio/video processing and burned-in subtitles
+
+### Required for the default video settings
+
+- **Gemini API key**
+  - Narration (Gemini TTS) and background music (Lyria). Lyria needs a key with billing enabled
+  - Without it: set `external_api: deny` (narration with macOS `say`, no BGM), or `narration: voicevox` / `bgm: none`
+  - Not needed for minutes or the graphic recording. Setup: step 1 of "Usage"
+
+### Optional
+
+- **[pandoc](https://pandoc.org/)** (`brew install pandoc`)
+  - Importing docx transcripts (e.g. Gemini notes, Teams transcripts) and exporting minutes as docx
+- **Docker + [VOICEVOX engine](https://voicevox.hiroshiba.jp/)**
+  - Local Japanese narration (`narration: voicevox`; a credit line is required)
+  - Install: `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
+
 ## Installation
 
 - digesta is a standard Agent Skill (`skills/digesta/SKILL.md`), so it works with Claude Code, Codex, and other agents that support skills
@@ -53,6 +82,19 @@ Add the marketplace [tell-k/agent-skills](https://github.com/tell-k/agent-skills
 - Load a local clone directly: `claude --plugin-dir /path/to/digesta`
 
 ## Usage
+
+### 1. Set the Gemini API key
+
+Used for video narration and BGM (not needed for minutes and the graphic recording only). Create `.env` in the project folder (the repository root, e.g. `tech-lunch/`):
+
+```
+GEMINI_API_KEY=your-key
+```
+
+- If it is under git, add `.env` to `.gitignore`
+- Do not paste the key into the chat
+
+### 2. Invoke the skill
 
 Open the project folder that contains your meeting folders (e.g. `tech-lunch/`) in your agent and invoke the skill.
 
@@ -98,61 +140,6 @@ Keeping token usage low:
 - Start a new session for each meeting; continuing a long session re-reads the whole conversation on every turn
 - The skill delegates writing the cut list, writing the graphic recording, and checking the result to subagents when the agent supports them (`references/agents.md`)
 - Transcripts and frames are read from saved files, only the parts needed
-
-## Requirements
-
-### Required
-
-- **An agent that supports Agent Skills**
-  - Tested with [Claude Code](https://code.claude.com/); Codex and others should work (they need to run shell commands and read images)
-- **macOS**
-  - The only tested OS (Intel and Apple silicon). Linux may work but is untested
-  - Narration with `say` is macOS-only
-- **[uv](https://docs.astral.sh/uv/)** (`brew install uv`)
-  - Runs the Python scripts; their dependencies (PyYAML, Playwright, Pillow, faster-whisper) are installed automatically
-- **[ffmpeg](https://ffmpeg.org/) with libass** (`brew install ffmpeg`)
-  - Audio/video processing and burned-in subtitles
-- **Internet access on first run**
-  - Downloads fonts (Google Fonts, OFL) to `~/.cache/digesta/fonts/`, a headless Chromium for rendering, and the local transcription model
-
-### Required for the default video settings
-
-- **Gemini API key**
-  - Narration (Gemini TTS) and background music (Lyria). Lyria needs a key with billing enabled
-  - Without it: set `external_api: deny` (narration with macOS `say`, no BGM), or `narration: voicevox` / `bgm: none`
-  - Not needed for minutes or the graphic recording
-
-### Optional
-
-- **[pandoc](https://pandoc.org/)** (`brew install pandoc`)
-  - Importing docx transcripts (e.g. Gemini notes, Teams transcripts) and exporting minutes as docx
-- **Docker + [VOICEVOX engine](https://voicevox.hiroshiba.jp/)**
-  - Local Japanese narration (`narration: voicevox`; a credit line is required)
-  - Install: `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
-
-### Gemini API key
-
-Put it in `.env` in the project folder (e.g. `tech-lunch/`):
-
-```
-GEMINI_API_KEY=your-key
-```
-
-Lookup order (the first one found wins):
-
-1. `.env` in the meeting folder (e.g. `tech-lunch/012/.env`)
-2. `.env` in the project folder (e.g. `tech-lunch/.env`)
-3. `.env` in the current working directory
-4. The `GEMINI_API_KEY` environment variable
-5. `~/.config/digesta/gemini.env` (either the bare key or `GEMINI_API_KEY=...`)
-
-Notes:
-
-- `GOOGLE_API_KEY` is also accepted in `.env`
-- `digest.py status <meeting>` shows where the key was loaded from (never the key itself)
-- Do not paste the key into the chat. To write it from the clipboard, run `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env` in a terminal outside the agent
-- If the folder is under git, add `.env` to `.gitignore`
-- `.env` is never copied into `output/`. Remove it before sharing the whole folder
 
 ## Input
 

@@ -23,6 +23,35 @@
 - 内容はすべてテキストで持つ(議事録、ナレーション原稿、カット表、ルール)
 - テキストを直して同じコマンドを実行すると、関係する部分だけが作り直される
 
+## 必要なもの
+
+### 必須
+
+- **Agent Skills に対応したエージェント**
+  - [Claude Code](https://code.claude.com/) で動作確認。Codex なども使えるはず(シェルコマンドの実行と画像の読み取りができること)
+- **macOS**
+  - 動作確認した唯一の OS(Intel、Apple シリコン)。Linux は未確認
+  - `say` によるナレーションは macOS のみ
+- **[uv](https://docs.astral.sh/uv/)**(`brew install uv`)
+  - Python スクリプトの実行。依存(PyYAML、Playwright、Pillow、faster-whisper)は自動で入る
+- **[ffmpeg](https://ffmpeg.org/)(libass 付き)**(`brew install ffmpeg`)
+  - 動画と音声の処理、字幕の焼き込み
+
+### 動画を既定の設定で作るときに必須
+
+- **Gemini API キー**
+  - ナレーション(Gemini TTS)と BGM(Lyria)。Lyria は課金が有効なキーが必要
+  - ないとき: `external_api: deny`(ナレーションは macOS の `say`、BGM なし)にするか、`narration: voicevox` / `bgm: none` にする
+  - 議事録とグラレコには要らない。設定は「使い方」の 1
+
+### 任意
+
+- **[pandoc](https://pandoc.org/)**(`brew install pandoc`)
+  - docx の文字起こし(Gemini メモ、Teams の文字起こしなど)の取り込み、議事録の docx 出力
+- **Docker と [VOICEVOX エンジン](https://voicevox.hiroshiba.jp/)**
+  - ローカルで日本語のナレーションを作る(`narration: voicevox`。クレジット表記が必要)
+  - 入れ方: `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
+
 ## インストール
 
 - 標準的な Agent Skill(`skills/digesta/SKILL.md`)なので、Claude Code、Codex など skill に対応したエージェントで使える
@@ -51,6 +80,19 @@ npx skills add tell-k/digesta -g -a claude-code
 - 手元のクローンを直接読み込む: `claude --plugin-dir /path/to/digesta`
 
 ## 使い方
+
+### 1. Gemini API キーを設定する
+
+動画のナレーションと BGM に使う(議事録とグラレコだけなら要らない)。プロジェクトのフォルダ(リポジトリ直下。例: `tech-lunch/`)に `.env` を作る。
+
+```
+GEMINI_API_KEY=ここにキー
+```
+
+- git で管理しているなら `.gitignore` に `.env` を入れる
+- キーはチャットに貼らない
+
+### 2. skill を呼ぶ
 
 会議のフォルダを並べたプロジェクトのフォルダ(例: `tech-lunch/`)をエージェントで開いて skill を呼ぶ。
 
@@ -96,61 +138,6 @@ npx skills add tell-k/digesta -g -a claude-code
 - 会議 1 回につき新しいセッションで始める。長いセッションの続きだと、会話の文脈を毎回読み直すぶんが数倍になる
 - skill の中では、カット表・グラレコ・検査の 3 工程をサブエージェントに任せる(エージェントが対応していれば。`references/agents.md`)
 - 文字起こしやフレームは、保存したファイルから必要な部分だけ読む
-
-## 必要なもの
-
-### 必須
-
-- **Agent Skills に対応したエージェント**
-  - [Claude Code](https://code.claude.com/) で動作確認。Codex なども使えるはず(シェルコマンドの実行と画像の読み取りができること)
-- **macOS**
-  - 動作確認した唯一の OS(Intel、Apple シリコン)。Linux は未確認
-  - `say` によるナレーションは macOS のみ
-- **[uv](https://docs.astral.sh/uv/)**(`brew install uv`)
-  - Python スクリプトの実行。依存(PyYAML、Playwright、Pillow、faster-whisper)は自動で入る
-- **[ffmpeg](https://ffmpeg.org/)(libass 付き)**(`brew install ffmpeg`)
-  - 動画と音声の処理、字幕の焼き込み
-- **初回のインターネット接続**
-  - フォント(Google Fonts の OFL フォント。`~/.cache/digesta/fonts/` に保存)、描画用の Chromium、ローカル文字起こしのモデルをダウンロードする
-
-### 動画を既定の設定で作るときに必須
-
-- **Gemini API キー**
-  - ナレーション(Gemini TTS)と BGM(Lyria)。Lyria は課金が有効なキーが必要
-  - ないとき: `external_api: deny`(ナレーションは macOS の `say`、BGM なし)にするか、`narration: voicevox` / `bgm: none` にする
-  - 議事録とグラレコには要らない
-
-### 任意
-
-- **[pandoc](https://pandoc.org/)**(`brew install pandoc`)
-  - docx の文字起こし(Gemini メモ、Teams の文字起こしなど)の取り込み、議事録の docx 出力
-- **Docker と [VOICEVOX エンジン](https://voicevox.hiroshiba.jp/)**
-  - ローカルで日本語のナレーションを作る(`narration: voicevox`。クレジット表記が必要)
-  - 入れ方: `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`
-
-### Gemini API キーの置き方
-
-プロジェクトのフォルダ(例: `tech-lunch/`)の `.env` に書く。
-
-```
-GEMINI_API_KEY=ここにキー
-```
-
-探す順(最初に見つかったものを使う):
-
-1. 会議のフォルダの `.env`(例: `tech-lunch/012/.env`)
-2. プロジェクトのフォルダの `.env`(例: `tech-lunch/.env`)
-3. コマンドを実行した場所の `.env`
-4. 環境変数 `GEMINI_API_KEY`
-5. `~/.config/digesta/gemini.env`(キーだけの1行でも、`GEMINI_API_KEY=...` の形でもよい)
-
-注意:
-
-- `.env` では `GOOGLE_API_KEY` という名前でも読む
-- 読み込み元は `digest.py status <会議>` の「Gemini API キー」の行で分かる(キー本体は表示しない)
-- キーをチャットに貼らない。クリップボードから書くなら、エージェントとは別のターミナルで `printf 'GEMINI_API_KEY=%s\n' "$(pbpaste)" >> .env`
-- git で管理するフォルダなら `.gitignore` に `.env` を入れる
-- `output/` に `.env` は含まれない。フォルダごと共有するときは `.env` を外す
 
 ## 入力
 
