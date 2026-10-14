@@ -1048,6 +1048,15 @@ def check_texts(ep):
             sl = t.get("slide")
             if sl is not None and (not isinstance(sl, dict) or not (sl.get("heading") or sl.get("points"))):
                 errs.append(f"cuts.yaml: {n}章「{t.get('title')}」の slide に heading も points もない")
+            if isinstance(sl, dict):
+                # 「CS国営側: 〜」のように「: 」を含む行を引用符なしで書くと YAML の辞書になり、スライドに [object Object] と出る
+                pts = sl.get("points") or []
+                bad = [k for k in ("label", "heading", "note") if sl.get(k) is not None and not isinstance(sl[k], (str, int, float))]
+                bad += [f"points の {i + 1} 個目" for i, p in enumerate(pts if isinstance(pts, list) else [pts]) if not isinstance(p, (str, int, float))]
+                if not isinstance(pts, list):
+                    errs.append(f"cuts.yaml: {n}章「{t.get('title')}」の slide.points が箇条書き(リスト)になっていない")
+                if bad:
+                    errs.append(f"cuts.yaml: {n}章「{t.get('title')}」の slide の {'、'.join(bad)} が文字列でない(「: 」を含むなら引用符で囲む)")
             for cl in t.get("clips") or []:
                 try:
                     a0, b0 = float(cl["start"]), float(cl["end"])
