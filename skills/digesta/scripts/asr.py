@@ -176,21 +176,23 @@ def main():
             print(f"{name}\n  原稿: {src}\n  聞取: {''.join(s.text for s in plain(m, wav))}", flush=True)
         print("聞き取りは漢字や英字の表記が原稿と違って当然。読み(音)が違う箇所だけを問題にする")
     elif cmd == "check-video":
-        mp4 = work / "digest.mp4"
-        wav = work / "digest16k.wav"
+        # 部品(timeline.txt の行)の開始秒と長さ
+        parts = {m.group(3): (int(m.group(1)) * 60 + float(m.group(2)), float(m.group(4)))
+                 for m in re.finditer(r"^\s*(\d+):(\d\d\.\d\d)\s+(\S+) \(([\d.]+)s\)", (work / "timeline.txt").read_text(), re.M)}
+        starts = {n: a for n, (a, _) in parts.items()}
         if "--reuse" in sys.argv and (work / "digest_asr.txt").exists():  # 聞き取りをやり直さず、保存済みの結果で照合だけする
             heard = [(float(m.group(1)), float(m.group(2)), m.group(3)) for m in re.finditer(r"^\s*([\d.]+)-\s*([\d.]+) (.*)$", (work / "digest_asr.txt").read_text(), re.M)]
         else:
-            subprocess.run(["ffmpeg", "-v", "error", "-i", str(mp4), "-vn", "-ac", "1", "-ar", "16000", "-y", str(wav)], check=True)
-            heard = [(s.start, s.end, s.text.strip()) for s in plain(model(), wav)]
-            wav.unlink()
+            # 動画全体を 1 回で起こすと、30 秒の窓が丸ごと落ちたり、時刻が数十秒ずれたりする。部品ごとに切って起こす
+            samples, m = audio(work / "digest.mp4"), model()
+            heard = []
+            for a, d in parts.values():
+                segs, _ = m.transcribe(samples[int(a * 16000):int((a + d) * 16000)], language="ja", vad_filter=True, condition_on_previous_text=False)
+                heard += [(round(a + s.start, 2), round(a + s.end, 2), s.text.strip()) for s in segs]
             (work / "digest_asr.txt").write_text("".join(f"{a:7.2f}-{b:7.2f} {t}\n" for a, b, t in heard))
         if "--print" in sys.argv:
             print("".join(f"{a:7.2f}-{b:7.2f} {t}\n" for a, b, t in heard), end="")
         # 字幕(work/seg/t*.ass)の先頭・末尾の語が、その時刻の聞き取りに含まれるかを調べる。含まれなければ欠けの疑い
-        starts = {}
-        for m in re.finditer(r"^\s*(\d+):(\d\d\.\d\d)\s+(\S+) ", (work / "timeline.txt").read_text(), re.M):
-            starts[m.group(3)] = int(m.group(1)) * 60 + float(m.group(2))
         def sec(x):
             h, mi, se = x.split(":"); return int(h) * 3600 + int(mi) * 60 + float(se)
         total, bad = 0, []
