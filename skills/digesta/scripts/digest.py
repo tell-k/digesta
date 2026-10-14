@@ -1027,6 +1027,10 @@ def check_texts(ep):
                 warns.append(f"episode.yaml: {i}章のまとめに「 #」がある。引用符で囲んでいないと、そこから後ろが消える")
         if len(ch.get("recap") or []) > 3:
             warns.append(f"episode.yaml: {i}章のまとめが {len(ch['recap'])} 項目(3 項目まで)")
+    roles = ((e.get("outro") or {}).get("board") or {}).get("roles") or []
+    if len(roles) > 2:
+        names = "、".join(str(r.get("name", "")) for r in roles[2:])
+        warns.append(f"episode.yaml: outro の roles が {len(roles)} つ(2 つまで)。3 つ目以降({names})は表示されない。担当ごとにまとめて 2 つに収め、残りは text に書く")
     cut_ch = [int(c.get("chapter", 0)) for c in (cuts if isinstance(cuts, list) else [])]
     for n in cut_ch:
         if n < 1 or n > len(chapters):
