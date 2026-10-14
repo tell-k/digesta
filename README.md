@@ -131,6 +131,7 @@ Rough timings:
 - **Without a transcript**: the recording is transcribed from scratch first, which adds at least the length of the recording
   - A 50-minute meeting took over an hour on an Intel Mac; Apple silicon is faster
   - Bring the transcript or captions from Zoom / Teams / Google Meet whenever you can
+  - They carry speaker names, so attendees and speakers in the minutes can be checked against them, and fewer names end up "to be confirmed" (要確認)
 
 Keeping token usage low:
 
