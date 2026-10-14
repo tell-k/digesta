@@ -224,6 +224,7 @@ GEMINI_API_KEY=ここにキー
 | `clean_audio` | `true` / `false` | `true` | 元音声の整音(低域カット、軽いノイズ除去、軽いコンプレッサー) |
 | `credit` | 文字列 | 空 | 動画の締めカード最下部の表記 |
 | `output_dir` | パス | `output` | 成果物の出力先 |
+| `file_names` | `en` / `ja` | `en` | 成果物のファイル名。`en` は `_digest.mp4` / `_summary.md` / `_graphic_4k.png` / `_thumbnail.png`、`ja` は `_ダイジェスト.mp4` / `_要約.md` / `_グラレコ_4k.png` / `_サムネイル.png` |
 | `video` | ファイル名 | 自動 | 録画が複数あるときに指定する |
 | `asr_prompt` | 文字列 | 空 | 文字起こしに渡す固有名詞のヒント |
 

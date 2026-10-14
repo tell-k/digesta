@@ -226,6 +226,7 @@ Each file starts with a settings block between `---` lines. Meeting settings ove
 | `clean_audio` | `true` / `false` | `true` | Light cleanup of the source audio (low-cut, mild denoise, mild compression) |
 | `credit` | String | empty | Credit line at the bottom of the closing card |
 | `output_dir` | Path | `output` | Where deliverables go |
+| `file_names` | `en` / `ja` | `en` | Deliverable file names. `en`: `_digest.mp4` / `_summary.md` / `_graphic_4k.png` / `_thumbnail.png`; `ja`: `_ダイジェスト.mp4` / `_要約.md` / `_グラレコ_4k.png` / `_サムネイル.png` |
 | `video` | File name | auto | Which recording to use when there are several |
 | `asr_prompt` | String | empty | Proper-noun hints for transcription |
 

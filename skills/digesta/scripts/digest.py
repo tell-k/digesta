@@ -15,7 +15,7 @@ usage: uv run digest.py <command> <会議のディレクトリ> [options]
   frames     完成動画の確認用に、区切りごとのフレームを 1 枚の一覧にする         [--all]
   plan       episode.yaml / cuts.yaml / narration.md を検査し、ビルド前に尺の見積もりを出す
   image      digest/grareco.html を描画して output/ に PNG を出す           [--split]
-             --split で、章ごとのパネル(.panel / .col)も 16:9 の画像(<名前>_graphic_chN.png)に切り出す(Slack にスレッドで貼る用)
+             --split で、章ごとのパネル(.panel / .col)も 16:9 の画像(<名前>_graphic_chN.png。file_names: ja なら _グラレコ_章N.png)に切り出す(Slack にスレッドで貼る用)
   narration  digest/narration.md から音声を合成する                  [--only 名前,名前] [--force]
   bgm        BGM を生成する                                          [--force]
   video      動画を作る(変わった部分だけ作り直す)                      [--force] [--no-bgm]
@@ -60,6 +60,7 @@ DEFAULTS = {
     "fps": 24,
     "asr_prompt": "",  # 文字起こしに渡す固有名詞のヒント(asr.py が使う)
     "output_dir": "output",
+    "file_names": "en",  # 成果物のファイル名: en(_digest.mp4 など)/ ja(_ダイジェスト.mp4 など)
 }
 # 合成は RGB で行い、最後に一度だけ bt709 リミテッドレンジへ変換する(カードと本編で色を揃えるため)
 RGB_IN = "in_color_matrix=bt709:in_range=tv:out_range=pc,format=gbrp"
@@ -199,6 +200,8 @@ class Ep:
             if self.cfg["bgm"] == "lyria":
                 self.cfg["bgm"] = "none"
         self.out = self.root / self.cfg["output_dir"]
+        if self.cfg["file_names"] not in self.FILE_NAMES:
+            die(f"file_names は {' / '.join(self.FILE_NAMES)} のどれか(いまは {self.cfg['file_names']!r})")
         self.fps = int(self.cfg["fps"])
         self.style_dirs = style_dirs(self.cfg["styles_path"], self.root.parent)
         self.style_dir = next((d / str(self.cfg["style"]) for d in self.style_dirs if (d / str(self.cfg["style"]) / "style.yaml").exists()), None)
@@ -242,8 +245,15 @@ class Ep:
     def video(self):
         return self.media(VIDEO_EXT)
 
-    # 成果物のファイル名(例: 2026-10-02_digest.mp4)
-    NAMES = {"minutes": "summary", "image": "graphic", "movie": "digest", "thumb": "thumbnail"}
+    # 成果物のファイル名。設定の file_names で切り替える(例: 2026-10-02_digest.mp4 / 2026-10-02_ダイジェスト.mp4)
+    FILE_NAMES = {
+        "en": {"minutes": "summary", "image": "graphic", "movie": "digest", "thumb": "thumbnail", "chapter": "ch"},
+        "ja": {"minutes": "要約", "image": "グラレコ", "movie": "ダイジェスト", "thumb": "サムネイル", "chapter": "章"},
+    }
+
+    @property
+    def NAMES(self):
+        return self.FILE_NAMES[self.cfg["file_names"]]
 
     def doc(self, kind, ext):
         return self.out / f"{self.name}_{self.NAMES.get(kind, kind)}.{ext}"
@@ -636,7 +646,7 @@ def split_panels(ep, b, src, w, h):
         cx, cy = x + pw / 2 - cw / 2, y + ph / 2 - chh / 2
         tmp = ep.work / f"panel_{i}.png"
         pg.screenshot(path=str(tmp), clip={"x": max(0, cx), "y": max(0, cy), "width": min(cw, w - max(0, cx)), "height": min(chh, h - max(0, cy))})
-        dst = ep.out / f"{ep.name}_{ep.NAMES['image']}_ch{i}.png"
+        dst = ep.out / f"{ep.name}_{ep.NAMES['image']}_{ep.NAMES['chapter']}{i}.png"
         run(["ffmpeg", "-v", "error", "-y", "-i", tmp, "-vf", f"pad={int(cw * 2)}:{int(chh * 2)}:(ow-iw)/2:(oh-ih)/2:color={bg},scale=1920:1080", dst])
         tmp.unlink(); out.append(dst)
     pg.evaluate("() => { window.__panels.concat(window.__others).forEach(e => e.style.visibility = ''); }")
@@ -1339,7 +1349,7 @@ def cmd_video(ep, a):
 
 def cmd_status(ep, a):
     print("設定:")
-    for k in ("style", "external_api", "minutes_format", "narration", "voice", "bgm", "bgm_gain", "clean_audio", "credit", "output_dir"):
+    for k in ("style", "external_api", "minutes_format", "narration", "voice", "bgm", "bgm_gain", "clean_audio", "credit", "output_dir", "file_names"):
         print(f"  {k}: {ep.cfg[k]!r}")
     print(f"  スタイルのフォルダ: {ep.style_dir}")
     print(f"  プロジェクト共通(設定・ルール・用語集): {ep.digesta}" + (f"(用語集 {len(glossary(ep.digesta))} 語)" if ep.digesta.exists() else "(なし)"))
