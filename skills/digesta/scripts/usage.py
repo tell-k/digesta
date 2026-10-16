@@ -19,6 +19,8 @@ RATE = {"input_tokens": 15, "cache_creation_input_tokens": 18.75, "cache_read_in
 
 
 def main():
+    for f in (sys.stdout, sys.stderr):  # Windows のパイプ出力は既定が cp932 で、日本語の一部の文字で落ちる。UTF-8 にそろえる
+        f.reconfigure(encoding="utf-8", errors="replace")
     args = sys.argv[1:]
     since = None
     if "--since" in args:
@@ -33,7 +35,7 @@ def main():
             sys.exit(f"セッションの記録が見つからない: {proj}(cd でプロジェクトのフォルダに移動して実行する)")
         f = cands[-1]
     rows, start = [], None
-    for line in open(f):
+    for line in open(f, encoding="utf-8"):
         try:
             r = json.loads(line)
         except Exception:

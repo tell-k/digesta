@@ -48,6 +48,7 @@ DEFAULTS = {
     "voice": "Leda",  # gemini の声
     "voice_style": "a young woman in her early twenties narrating a friendly internal recap video in Japanese; bright, cheerful and natural, clear articulation, slightly brisk pace",
     "gemini_tts_model": "gemini-3.8-flash-tts",
+    "gemini_asr_model": "gemini-3.8-flash",  # asr.py check-narration の聞き取りに使うモデル
     "image_model": "gemini-3.1-flash-image",  # キャラクター画像の生成に使うモデル
     "voicevox_speaker": 2,  # 四国めたん(ノーマル)
     "say_voice": "Kyoko",
@@ -88,7 +89,7 @@ def die(msg):
 
 
 def run(cmd, cwd=None):
-    r = subprocess.run([str(c) for c in cmd], capture_output=True, text=True, cwd=cwd)
+    r = subprocess.run([str(c) for c in cmd], capture_output=True, text=True, encoding="utf-8", errors="replace", cwd=cwd)
     if r.returncode:
         die("コマンド失敗: " + " ".join(str(c) for c in cmd[:6]) + " …\n" + r.stderr[-3000:])
     return r
@@ -117,11 +118,11 @@ def sha(*parts):
 def fresh(path, key):
     """path が key と同じ入力から作られていれば True(作り直し不要)"""
     k = Path(str(path) + ".key")
-    return Path(path).exists() and k.exists() and k.read_text() == key
+    return Path(path).exists() and k.exists() and k.read_text(encoding="utf-8") == key
 
 
 def mark(path, key):
-    Path(str(path) + ".key").write_text(key)
+    Path(str(path) + ".key").write_text(key, encoding="utf-8")
 
 
 def style_dirs(setting, base):
@@ -136,7 +137,7 @@ def frontmatter(path):
     """Markdown 冒頭の --- で挟んだ YAML を dict で返す"""
     if not path.exists():
         return {}
-    s = path.read_text()
+    s = path.read_text(encoding="utf-8")
     m = re.match(r"^---\n(.*?)\n---\n", s, re.S)
     return (yaml.safe_load(m.group(1)) or {}) if m else {}
 
@@ -153,7 +154,7 @@ def glossary(path):
     if not path.exists():
         return []
     rows, on = [], False
-    for line in re.sub(r"<!--.*?-->", "", path.read_text(), flags=re.S).splitlines():
+    for line in re.sub(r"<!--.*?-->", "", path.read_text(encoding="utf-8"), flags=re.S).splitlines():
         if re.match(r"^##\s", line):
             on = line[2:].strip().startswith("用語集")
             continue
@@ -208,7 +209,7 @@ class Ep:
         if not self.style_dir:
             names = sorted({p.name for d in self.style_dirs if d.is_dir() for p in d.iterdir() if (p / "style.yaml").exists()})
             die(f"スタイル '{self.cfg['style']}' がない。使えるのは: " + ", ".join(names) + "\n探したフォルダ: " + ", ".join(map(str, self.style_dirs)))
-        self.style = yaml.safe_load((self.style_dir / "style.yaml").read_text()) or {}
+        self.style = yaml.safe_load((self.style_dir / "style.yaml").read_text(encoding="utf-8")) or {}
         self.fonts = {k: tuple(v) for k, v in (self.style.get("fonts") or {}).items()}
         # 引用符なしの 0xf0f0f0 は YAML が整数(15790320)として読む。そのまま文字列にして ffmpeg に渡すと
         # 先頭6桁「157903」の濃い緑になり、カードの出入りが緑を経由していた。16進に戻して渡す
@@ -280,7 +281,7 @@ class Ep:
         f = self.digest / "episode.yaml"
         if not f.exists():
             die("digest/episode.yaml がない")
-        ep = yaml.safe_load(f.read_text()) or {}
+        ep = yaml.safe_load(f.read_text(encoding="utf-8")) or {}
         cuts = self.cuts(required=False)
         for i, ch in enumerate(ep.get("chapters", [])):
             ch["n"] = i + 1
@@ -303,7 +304,7 @@ class Ep:
             if required:
                 die("digest/cuts.yaml がない")
             return {}
-        data = yaml.safe_load(f.read_text()) or []
+        data = yaml.safe_load(f.read_text(encoding="utf-8")) or []
         return {int(c["chapter"]): c.get("topics", []) for c in data}
 
     def narration(self):
@@ -311,7 +312,7 @@ class Ep:
         f = self.digest / "narration.md"
         if not f.exists():
             die("digest/narration.md がない")
-        text = re.sub(r"<!--.*?-->", "", f.read_text(), flags=re.S)
+        text = re.sub(r"<!--.*?-->", "", f.read_text(encoding="utf-8"), flags=re.S)
         # 読み替え: プロジェクトの用語集(../digesta.md) < 会議フォルダの用語集(digesta.md) < narration.md の「## 読み」
         cards, yomi = {}, {k: r["読み"] for k, r in glossary_terms(self).items() if r.get("読み")}
         for name, body in re.findall(r"^## +(\S+)[^\n]*\n(.*?)(?=^## |\Z)", text, re.S | re.M):
@@ -354,11 +355,11 @@ def sync_lib(ep, with_episode=True):
     if not (ep.style_dir / "slide.html").exists():  # 録画がない話題のスライド。スタイルに無ければ共通の雛形を使う
         shutil.copy(SKILL / "assets/slide.html", ep.lib / "slide.html")
     css = "".join(f'@font-face{{font-family:"{fam}";font-weight:{w};src:url("{(FONT_CACHE / fn).as_uri()}")}}\n' for fn, (_, fam, w) in ep.fonts.items())
-    (ep.lib / "fonts.css").write_text(css)
+    (ep.lib / "fonts.css").write_text(css, encoding="utf-8")
     # 会議ごとの追加イラスト: icons.<style>.js があればそれを、なければ icons.js を lib/icons.js として使う
     icons = ep.digest / "icons.js"
     if not icons.exists():
-        icons.write_text("// この会議だけの追加イラスト。書き方は skill の references/grareco-guide.md を参照\nObject.assign(ICONS, {\n});\n")
+        icons.write_text("// この会議だけの追加イラスト。書き方は skill の references/grareco-guide.md を参照\nObject.assign(ICONS, {\n});\n", encoding="utf-8")
     styled = ep.digest / f"icons.{ep.cfg['style']}.js"
     src_icons = styled if styled.exists() else icons
     if not (ep.lib / "icons.js").exists() or (ep.lib / "icons.js").read_bytes() != src_icons.read_bytes():
@@ -366,7 +367,7 @@ def sync_lib(ep, with_episode=True):
     parts = [f.read_bytes() for f in sorted(ep.style_dir.iterdir()) if f.name not in ("style.yaml", "grareco-base.html")] + [src_icons.read_bytes(), css.encode()]
     if with_episode and (ep.digest / "episode.yaml").exists():
         e = ep.episode()
-        (ep.lib / "episode.js").write_text("const EP = " + json.dumps(e, ensure_ascii=False, indent=1) + ";\n")
+        (ep.lib / "episode.js").write_text("const EP = " + json.dumps(e, ensure_ascii=False, indent=1) + ";\n", encoding="utf-8")
     return sha(*parts)
 
 
@@ -427,7 +428,7 @@ def import_transcripts(ep):
                 run(["pandoc", f, "-t", "markdown", "--wrap=none", "-o", dst])
         elif ext in (".vtt", ".srt"):
             if not dst.exists():
-                dst.write_text(caption_to_md(f.read_text(errors="replace")))
+                dst.write_text(caption_to_md(f.read_text(encoding="utf-8", errors="replace")), encoding="utf-8")
         elif ext in (".txt", ".md") and f.name.lower() not in ("readme.md", "todo.md", "digesta.md"):
             if not dst.exists():
                 shutil.copy(f, dst)
@@ -549,8 +550,8 @@ def cmd_frames(ep, a):
     seg, lst = ep.work / "seg", ep.work / "seg/list.txt"
     if not lst.exists():
         die("先に video を実行する")
-    order = re.findall(r"'(.+)\.mkv'", lst.read_text())
-    starts = {m.group(2): m.group(1) for m in re.finditer(r"^\s*(\d+:\d\d\.\d\d)\s+(\S+) ", (ep.work / "timeline.txt").read_text(), re.M)} if (ep.work / "timeline.txt").exists() else {}
+    order = re.findall(r"'(.+)\.mkv'", lst.read_text(encoding="utf-8"))
+    starts = {m.group(2): m.group(1) for m in re.finditer(r"^\s*(\d+:\d\d\.\d\d)\s+(\S+) ", (ep.work / "timeline.txt").read_text(encoding="utf-8"), re.M)} if (ep.work / "timeline.txt").exists() else {}
     tmp = ep.work / "frames"; tmp.mkdir(exist_ok=True)
     for f in tmp.glob("*.png"):
         f.unlink()
@@ -660,7 +661,7 @@ ENV_DIRS = []  # .env を探すディレクトリ(会議 → プロジェクト 
 
 def dotenv_value(path, name):
     """.env 形式のファイルから name の値を読む(KEY=VALUE、export 付き、引用符、# コメントに対応)"""
-    for line in path.read_text(errors="replace").splitlines():
+    for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
         m = re.match(rf"^\s*(?:export\s+)?{re.escape(name)}\s*=\s*(.*?)\s*$", line)
         if m:
             v = m.group(1)
@@ -691,7 +692,7 @@ def gemini_key_source():
             # キーだけの行でも、GEMINI_API_KEY=... の形でも読む。# で始まる行(古いキーのメモなど)と空行は飛ばす
             v = dotenv_value(f, "GEMINI_API_KEY")
             if not v:
-                lines = [l.strip() for l in f.read_text(errors="replace").splitlines()]
+                lines = [l.strip() for l in f.read_text(encoding="utf-8", errors="replace").splitlines()]
                 lines = [l for l in lines if l and not l.startswith("#")]
                 v = lines[0].strip("'\"") if lines else None
             return v, str(f)
@@ -824,7 +825,7 @@ def chars_spec(ep):
     f = ep.digest / "chars.yaml"
     if not f.exists():
         return {}
-    data = yaml.safe_load(f.read_text()) or []
+    data = yaml.safe_load(f.read_text(encoding="utf-8")) or []
     base = ep.style.get("char_style", "")
     out = {}
     for c in data:
@@ -884,7 +885,7 @@ def cmd_bgm(ep, a, need=420):
             run(["ffmpeg", "-v", "error", "-y", "-i", f, "-ar", "48000", "-ac", "2", src]); mark(src, key)
     d = dur_of(src)
     n = max(1, math.ceil((need + 10) / max(d - 4, 1)))
-    lkey = sha(Path(str(src) + ".key").read_text(), n)
+    lkey = sha(Path(str(src) + ".key").read_text(encoding="utf-8"), n)
     if not fresh(long, lkey):
         if n == 1:
             shutil.copy(src, long)
@@ -921,7 +922,7 @@ def build_topic(ep, e, ch, t, topic, frame, seg, force):
         die(f"cuts.yaml: {ch}章「{topic['title']}」に clips がない")
     clean = CLEAN if ep.cfg["clean_audio"] else "highpass=f=70"
     v = ep.video
-    key = sha("topic", clips, crop_ch, clean, ep.ass_head, ep.paper, ep.fps, Path(str(frame) + ".key").read_text(), v.stat().st_size)
+    key = sha("topic", clips, crop_ch, clean, ep.ass_head, ep.paper, ep.fps, Path(str(frame) + ".key").read_text(encoding="utf-8"), v.stat().st_size)
     out = seg / f"t{ch}{t}.mkv"
     if not force and fresh(out, key):
         return dur_of(out), False
@@ -938,7 +939,7 @@ def build_topic(ep, e, ch, t, topic, frame, seg, force):
             ass += f"Dialogue: 0,{ass_ts(s2)},{ass_ts(e3)},Sub,,0,0,0,,{{\\pos(960,972)}}{str(text).replace(chr(10), chr(92) + 'N')}\n"
         off += d
     n = len(clips)
-    (seg / f"t{ch}{t}.ass").write_text(ass)
+    (seg / f"t{ch}{t}.ass").write_text(ass, encoding="utf-8")
     fc.append("".join(f"[v{i}][a{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=1[cv][ca]")
     fc.append(f"[cv]pad=1920:1080:44:104:color={ep.paper}[pv]")
     fc.append(f"[pv][{n}:v]overlay=0:0:format=gbrp,format=rgb24,subtitles=seg/t{ch}{t}.ass:fontsdir={FONT_CACHE},format=rgb24,"
@@ -979,7 +980,7 @@ def build_slide_topic(ep, e, ch, t, topic, frame, slide_png, seg, narr, force):
     nd = dur_of(wav) if has else max(len(text) / 6.2, 4.0)
     lead, tail = 0.4, 0.8
     d = lead + nd + tail
-    key = sha("slide", Path(str(frame) + ".key").read_text(), Path(str(slide_png) + ".key").read_text(), text,
+    key = sha("slide", Path(str(frame) + ".key").read_text(encoding="utf-8"), Path(str(slide_png) + ".key").read_text(encoding="utf-8"), text,
               hashlib.sha256(wav.read_bytes()).hexdigest() if has else "", ep.ass_head, ep.paper, ep.fps)
     out = seg / f"t{ch}{t}.mkv"
     if not force and fresh(out, key):
@@ -991,7 +992,7 @@ def build_slide_topic(ep, e, ch, t, topic, frame, slide_png, seg, narr, force):
         span = nd * len(x) / total_chars
         ass += f"Dialogue: 0,{ass_ts(at)},{ass_ts(min(at + span, d - 0.05))},Sub,,0,0,0,,{{\\pos(960,972)}}{x}\n"
         at += span
-    (seg / f"t{ch}{t}.ass").write_text(ass)
+    (seg / f"t{ch}{t}.ass").write_text(ass, encoding="utf-8")
     audio = ["-i", wav] if has else ["-f", "lavfi", "-t", f"{d:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
     af = (f"[1:a]aresample=48000,loudnorm=I=-17:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB,adelay={int(lead * 1000)}:all=1,apad[a]"
           if has else "[1:a]anull[a]")
@@ -1013,7 +1014,7 @@ def check_texts(ep):
         if not f.exists():
             errs.append(f"{name} がない"); return None
         try:
-            return yaml.safe_load(f.read_text())
+            return yaml.safe_load(f.read_text(encoding="utf-8"))
         except yaml.YAMLError as ex:
             m = getattr(ex, "problem_mark", None)
             where = f" {m.line + 1} 行目" if m else ""
@@ -1259,7 +1260,7 @@ def cmd_video(ep, a):
             if name == "opening":
                 # サムネイル: 停止中のプレーヤーは先頭フレームを表示するので、それを先頭に置き、0.5 秒かけてオープニングの頭に溶かす。
                 # スタイルの cards.html に id="thumb"(タイトルスライド)があればそれを、なければオープニングの完成状態を使う
-                if 'id="thumb"' in (ep.lib / "cards.html").read_text():
+                if 'id="thumb"' in (ep.lib / "cards.html").read_text(encoding="utf-8"):
                     pg_.goto((ep.lib / "cards.html").as_uri() + "#id=thumb"); pg_.reload()
                     pg_.wait_for_function("window.READY === true")
                 pg_.evaluate("seek(window.END)")
@@ -1277,7 +1278,7 @@ def cmd_video(ep, a):
         b.close(); p.stop()
 
     # 結合
-    (seg / "list.txt").write_text("".join(f"file '{n}.mkv'\n" for n in order))
+    (seg / "list.txt").write_text("".join(f"file '{n}.mkv'\n" for n in order), encoding="utf-8")
     total, lines = 0.0, []
     for n in order:
         d = dur_of(seg / f"{n}.mkv"); lines.append(f"  {ts(total):>8}  {n} ({d:.1f}s)"); total += d
@@ -1309,7 +1310,7 @@ def cmd_video(ep, a):
     run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", seg / "list.txt", *mix, "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", *TAG,
          "-r", ep.fps, "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-t", f"{total:.3f}", "-movflags", "+faststart", tmp])
     # 検査: 音声パケットの時刻が連続か(末尾の 1 個以外はすべて 1024 サンプル間隔のはず)
-    pk = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "packet=pts", "-of", "csv=p=0", str(tmp)], capture_output=True, text=True).stdout.split()
+    pk = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "a", "-show_entries", "packet=pts", "-of", "csv=p=0", str(tmp)], capture_output=True, text=True, encoding="utf-8", errors="replace").stdout.split()
     pts = [int(x.strip(",")) for x in pk if x.strip(",").lstrip("-").isdigit()]
     bad = sum(1 for x, y in zip(pts, pts[1:]) if y - x != 1024)
     if bad:
@@ -1335,10 +1336,10 @@ def cmd_video(ep, a):
     shutil.copy(tmp, ep.movie)
     if (ep.work / "thumb.png").exists():
         shutil.copy(ep.work / "thumb.png", ep.thumb)  # Slack などに動画と一緒に添える用
-    (ep.work / "timeline.txt").write_text("\n".join(lines) + "\n")
+    (ep.work / "timeline.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     print(f"作り直した部分: {', '.join(made) or 'なし(結合のみ)'}")
-    lu = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(ep.movie), "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"], capture_output=True, text=True).stderr
+    lu = subprocess.run(["ffmpeg", "-hide_banner", "-i", str(ep.movie), "-af", "ebur128=peak=true:framelog=quiet", "-f", "null", "-"], capture_output=True, text=True, encoding="utf-8", errors="replace").stderr
     m = re.search(r"I:\s+(-?[\d.]+) LUFS[\s\S]*?Peak:\s+(-?[\d.]+) dBFS", lu[lu.rfind("Summary"):])
     print(f"出力: {ep.movie}({ts(total)}、BGM {'あり' if bgm else 'なし'}" + (f"、{m.group(1)} LUFS、ピーク {m.group(2)} dBFS" if m else "") + ")")
     if ep.thumb.exists():
@@ -1376,6 +1377,8 @@ def cmd_status(ep, a):
 
 
 def main():
+    for f in (sys.stdout, sys.stderr):  # Windows のパイプ出力は既定が cp932 で、日本語の一部の文字で落ちる。UTF-8 にそろえる
+        f.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["init", "minutes", "sheet", "grid", "crop", "frames", "plan", "image", "narration", "bgm", "video", "voices", "chars", "status"])
     ap.add_argument("dir")
