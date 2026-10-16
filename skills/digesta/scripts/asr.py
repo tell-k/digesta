@@ -13,7 +13,8 @@ usage: uv run asr.py <command> <会議のディレクトリ> [引数]
   windows <dir> 205-285 430-530 ...   元音声の指定区間(秒)を単語タイムスタンプ付きで文字起こしする
                                       結果は digest/work/win/<開始秒>.json と .txt に保存し、件数だけ表示する(--print で全文も)
                                       会議フォルダに vtt / srt(Teams などの字幕)があれば、文字起こしせずにその発話の時刻を使う
-                                      (単語の時刻はない。words を使う区間だけ --asr を付けて起こし直す)
+                                      vtt / srt がなく、Teams の文字起こし docx を取り込んであれば、その発話の時刻を使う(開始だけで秒単位)
+                                      (単語の時刻はない。カット点と字幕を決める区間だけ --asr を付けて起こし直す)
   show <dir> 205 [250-270] ...        保存済みの区間を表示する。「開始秒 範囲」の形で、その時刻範囲の文だけに絞れる
   find <dir> 語 語 ...                保存済みの全区間から、語を含む文を時刻付きで探す(全文を読まずに候補を見つける)
   words <dir> <区間の開始秒> <a> <b>   a〜b 秒の単語ごとの時刻を表示する(長い発話を字幕に分けるとき)
@@ -142,10 +143,11 @@ def gemini_transcribe(root, wavs):
 
 
 def captions(root):
-    """会議フォルダの vtt / srt の発話を [開始秒, 終了秒, 話者, 文] のリストで返す。なければ None"""
+    """会議フォルダの vtt / srt の発話を [開始秒, 終了秒, 話者, 文] のリストで返す。
+    なければ、取り込んだ Teams の docx(digest/work/transcript_*.md)の発話を使う。どちらもなければ None"""
     fs = sorted(p for p in root.iterdir() if p.suffix.lower() in (".vtt", ".srt"))
     if not fs:
-        return None
+        return teams_docx(root)
     out = []
     for f in fs:
         for block in re.split(r"\n\s*\n", f.read_text(encoding="utf-8", errors="replace").replace("\r", "")):
@@ -164,6 +166,33 @@ def captions(root):
             if text:
                 out.append([round(a, 2), round(b, 2), who, text])
     return sorted(out)
+
+
+def teams_docx(root):
+    """Teams の文字起こし docx を pandoc で取り込んだ md(「話者** 1:23」の行のあとに発言が続く)の発話を
+    [開始秒, 終了秒, 話者, 文] で返す。docx の時刻は発言の開始だけで秒単位なので、終了は次の発言の開始にする"""
+    rows = []
+    for f in sorted((root / "digest/work").glob("transcript_*.md")):
+        lines = f.read_text(encoding="utf-8", errors="replace").splitlines()
+        for i, line in enumerate(lines):
+            m = re.match(r"^(.+?)\*\* (\d+(?::\d{2}){1,2})\\?$", line.strip())
+            if not m:
+                continue
+            body = []
+            for l in lines[i + 1:]:
+                if not l.strip() or "**" in l:
+                    break
+                body.append(l.strip().rstrip("\\").strip())
+            who = re.sub(r"!\[[^\]]*\]\([^)]*\)(\{[^}]*\})?|\*", "", m.group(1)).strip()
+            t = 0
+            for x in m.group(2).split(":"):
+                t = t * 60 + int(x)
+            if body:
+                rows.append([t, who, " ".join(body)])
+    if not rows:
+        return None
+    rows.sort(key=lambda r: r[0])
+    return [[float(a), float(rows[i + 1][0] if i + 1 < len(rows) else a + 30), who, text] for i, (a, who, text) in enumerate(rows)]
 
 
 def joined(pieces, **kw):
@@ -331,7 +360,7 @@ def main():
         caps = None if "--asr" in sys.argv else captions(root)
         args = [x for x in args if not x.startswith("--")]
         if caps:
-            print("vtt / srt の発話の時刻を使う(文字起こしはしない。単語の時刻が要る区間は --asr で起こし直す)")
+            print("vtt / srt(なければ Teams の docx)の発話の時刻を使う(文字起こしはしない。単語の時刻が要る区間は --asr で起こし直す)")
             for w in args:
                 a, b = (int(x) for x in w.split("-"))
                 out = [{"start": s, "end": e, "who": who, "text": t, "words": []} for s, e, who, t in caps if e >= a and s <= b]
@@ -371,7 +400,7 @@ def main():
     elif cmd == "words":
         w, a, b = args[0], float(args[1]), float(args[2])
         if not any(s["words"] for s in json.loads((work / "win" / f"{w}.json").read_text(encoding="utf-8"))):
-            sys.exit(f"区間 {w} には単語の時刻がない(vtt / srt から作った区間)。windows <dir> <区間> --asr で起こし直す")
+            sys.exit(f"区間 {w} には単語の時刻がない(vtt / srt / docx から作った区間)。windows <dir> <区間> --asr で起こし直す")
         print(" ".join(f"{ws:.2f}|{t}" for s in json.load(open(work / "win" / f"{w}.json", encoding="utf-8")) for ws, we, t in s["words"] if a <= ws <= b))
     elif cmd == "check-narration":
         text = re.sub(r"<!--.*?-->", "", (root / "digest/narration.md").read_text(encoding="utf-8"), flags=re.S)
