@@ -20,6 +20,14 @@ Styles (switch with the `style` setting; the same content can be re-rendered in 
 - `pop`: colorful minutes-style layout; character illustrations are generated with Gemini
 - `mono`: yellow, black and gray only
 
+The same fictional study session (`skills/digesta/assets/examples/study/`) as a graphic recording in each style (sources: `previews/<style>.html`; doodle: `examples/study/grareco.html`):
+
+| doodle | business |
+|---|---|
+| ![doodle](previews/doodle.png) | ![business](previews/business.png) |
+| **pop** | **mono** |
+| ![pop](previews/pop.png) | ![mono](previews/mono.png) |
+
 Rebuilding:
 
 - Everything is kept as editable text (minutes, narration script, cut list, rules)

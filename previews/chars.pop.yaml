@@ -1,0 +1,9 @@
+# pop スタイルのキャラクター。見た目とポーズだけを書く(人名・会社名・会議の内容は書かない)
+- name: minato
+  prompt: A person with a chestnut-brown bob haircut, wearing a coral-pink apron over a white shirt, smiling and holding up a freshly baked loaf of bread with both hands.
+- name: sora
+  prompt: A person with short dark navy hair and round glasses, wearing a magenta hoodie, pointing at a small floating magnifying glass with one hand, confident smile.
+- name: riku
+  prompt: A person with short sandy-brown hair and a light orange cycling helmet, wearing an orange cycling jersey, giving a cheerful thumbs-up, a small backpack strap visible on the shoulder.
+- name: haru
+  prompt: A person with a light-brown ponytail, wearing a teal cardigan over a white shirt, holding a small handheld microphone and waving with the other hand.

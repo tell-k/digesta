@@ -18,6 +18,14 @@
 - `pop`: カラフルな議事録風。人物のイラストは Gemini の画像生成で作る
 - `mono`: 黄・黒・グレーの3色だけ
 
+同じ架空の勉強会(`skills/digesta/assets/examples/study/`)を各スタイルでグラレコにした見本(描画元は `previews/<スタイル>.html`。doodle は `examples/study/grareco.html`):
+
+| doodle | business |
+|---|---|
+| ![doodle](previews/doodle.png) | ![business](previews/business.png) |
+| **pop** | **mono** |
+| ![pop](previews/pop.png) | ![mono](previews/mono.png) |
+
 作り直し:
 
 - 内容はすべてテキストで持つ(議事録、ナレーション原稿、カット表、ルール)
