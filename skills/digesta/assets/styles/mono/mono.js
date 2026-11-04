@@ -81,7 +81,7 @@ const ICONS = {
       p.path(`M23 ${y} l4 5 l8 -10`, null, { stroke: C.coral, strokeWidth: 3 });
       p.line(40, y, 60, y, { strokeWidth: 1.8 });
     }
-    p.circ(70, 64, 28, "rgba(143,208,242,0.75)");
+    p.circ(70, 64, 28, "rgba(238,238,238,0.8)");
     p.line(80, 75, 93, 90, { strokeWidth: 5 });
   },
   kitchen(p) {
@@ -99,7 +99,7 @@ const ICONS = {
   },
   pizza(p) {
     p.steam(34, 20); p.steam(50, 16); p.steam(66, 20);
-    p.circ(50, 58, 66, "#f3c779");
+    p.circ(50, 58, 66, C.cream);
     p.circ(50, 58, 52, C.orange, { strokeWidth: 1.6 });
     [[40, 48], [60, 50], [50, 66], [36, 66], [64, 68]].forEach(([x, y]) => p.circ(x, y, 9, C.red, { strokeWidth: 1.2 }));
     p.line(50, 26, 50, 90, { strokeWidth: 1.4 }); p.line(19, 58, 81, 58, { strokeWidth: 1.4 });
@@ -110,12 +110,12 @@ const ICONS = {
     p.path("M38 58 q-14 -8 -18 4 q8 10 18 -4 Z", C.green); p.path("M60 48 q14 -8 18 4 q-8 10 -18 -4 Z", C.green);
     p.circ(30, 30, 24, C.blue); p.circ(70, 26, 20, C.purple); p.circ(68, 62, 18, C.coral);
     [[30, 30, 7], [70, 26, 6], [68, 62, 5]].forEach(([x, y, s]) => p.sparkle(x, y, s, C.white));
-    p.poly([[30, 72], [70, 72], [64, 96], [36, 96]], "#d98a5f");
+    p.poly([[30, 72], [70, 72], [64, 96], [36, 96]], C.brown);
   },
   caterpillar(p) {
     p.path("M6 78 Q50 96 94 74 Q60 70 6 78 Z", C.green);
-    [[20, 62], [34, 56], [48, 62], [62, 56]].forEach(([x, y]) => p.circ(x, y, 19, "#b6e06a"));
-    p.circ(78, 56, 24, "#b6e06a");
+    [[20, 62], [34, 56], [48, 62], [62, 56]].forEach(([x, y]) => p.circ(x, y, 19, C.gray));
+    p.circ(78, 56, 24, C.gray);
     p.dot(74, 53, 3.5); p.dot(83, 53, 3.5);
     p.path("M74 61 q5 4 9 0", null, { strokeWidth: 1.6 });
     p.line(72, 45, 68, 34, { strokeWidth: 1.6 }); p.line(84, 45, 90, 35, { strokeWidth: 1.6 });
@@ -133,7 +133,7 @@ const ICONS = {
     });
   },
   grasshopper(p) {
-    p.path("M10 66 Q40 44 80 46 Q96 44 92 52 Q70 70 10 66 Z", "#9ad25e");
+    p.path("M10 66 Q40 44 80 46 Q96 44 92 52 Q70 70 10 66 Z", C.gray);
     p.path("M44 60 L60 26 L72 62", null, { strokeWidth: 2.6 });
     p.line(30, 64, 24, 80, { strokeWidth: 2 }); p.line(54, 62, 52, 80, { strokeWidth: 2 });
     p.dot(84, 49, 3.5);
@@ -146,7 +146,7 @@ const ICONS = {
     p.sparkle(46, 22, 9);
   },
   bento(p) {
-    p.rr(8, 28, 84, 52, 8, "#e9c58c");
+    p.rr(8, 28, 84, 52, 8, C.cream);
     p.line(52, 30, 52, 78, { strokeWidth: 1.6 });
     p.poly([[30, 36], [46, 68], [14, 68]], C.white);
     p.rect(23, 58, 14, 10, INK, { strokeWidth: 1 });
@@ -197,7 +197,7 @@ const ICONS = {
   },
   tomb(p) {
     p.path("M30 86 V42 Q30 16 50 16 Q70 16 70 42 V86 Z", C.gray);
-    p.rect(20, 84, 60, 9, "#a9a59d");
+    p.rect(20, 84, 60, 9, C.brown);
     p.text(50, 50, "LT", 17, INK);
     p.line(80, 84, 84, 60, { stroke: C.leaf, strokeWidth: 2 }); p.circ(85, 56, 10, C.magenta, { strokeWidth: 1.4 });
     p.line(14, 84, 12, 66, { stroke: C.leaf, strokeWidth: 2 }); p.circ(12, 62, 9, C.yellow, { strokeWidth: 1.4 });
@@ -213,7 +213,7 @@ const ICONS = {
     [52, 60, 68, 76].forEach((y) => p.line(52, y, 86, y, { strokeWidth: 1.3 }));
   },
   coin(p) {
-    p.circ(50, 52, 62, C.yellow); p.circ(50, 52, 46, "#ffe08a", { strokeWidth: 1.4 });
+    p.circ(50, 52, 62, C.yellow); p.circ(50, 52, 46, C.cream, { strokeWidth: 1.4 });
     p.text(50, 66, "¥", 38, INK);
   },
   plane(p) {
@@ -270,9 +270,9 @@ const ICONS = {
     p.line(30, 40, 70, 40, { strokeWidth: 1.8 });
   },
   parcel(p) {
-    p.poly([[14, 44], [30, 26], [84, 26], [68, 44]], "#e7c18b");
-    p.poly([[68, 44], [84, 26], [84, 68], [68, 86]], "#c99a5e");
-    p.rect(14, 44, 54, 42, "#d9ad72");
+    p.poly([[14, 44], [30, 26], [84, 26], [68, 44]], C.cream);
+    p.poly([[68, 44], [84, 26], [84, 68], [68, 86]], C.brown);
+    p.rect(14, 44, 54, 42, C.yellow);
     p.line(41, 44, 41, 86, { strokeWidth: 1.6 }); p.line(41, 44, 57, 26, { strokeWidth: 1.6 });
     p.rect(20, 62, 16, 12, C.white, { strokeWidth: 1.3 });
   },
@@ -351,7 +351,7 @@ const ICONS = {
     p.curve([[20, 50], [44, 36], [64, 22], [90, 8]], { stroke: C.magenta, strokeWidth: 2.6 });
   },
   people(p) {
-    [[24, 40, C.sky, C.brown], [76, 40, C.yellow, "#3a2a20"]].forEach(([x, y, shirt, hair]) => {
+    [[24, 40, C.sky, C.brown], [76, 40, C.yellow, INK]].forEach(([x, y, shirt, hair]) => {
       p.path(`M${x - 18} 92 Q${x - 16} 64 ${x} 62 Q${x + 16} 64 ${x + 18} 92 Z`, shirt);
       p.circ(x, y + 6, 28, C.skin); p.path(`M${x - 13} ${y + 2} Q${x - 12} ${y - 12} ${x} ${y - 10} Q${x + 12} ${y - 12} ${x + 13} ${y + 2} Q${x} ${y - 6} ${x - 13} ${y + 2} Z`, hair, { strokeWidth: 1.4 });
     });
@@ -408,12 +408,12 @@ const ICONS = {
   },
   sloth(p) {
     p.path("M14 98 Q16 74 50 72 Q84 74 86 98 Z", C.orange);
-    p.ell(50, 44, 66, 58, "#b48a62");
+    p.ell(50, 44, 66, 58, C.brown);
     p.ell(50, 47, 50, 42, C.sand);
-    p.path("M26 40 Q34 34 44 44 Q38 54 28 50 Z", "#a07a55", { strokeWidth: 1.4 });
-    p.path("M74 40 Q66 34 56 44 Q62 54 72 50 Z", "#a07a55", { strokeWidth: 1.4 });
+    p.path("M26 40 Q34 34 44 44 Q38 54 28 50 Z", C.blue, { strokeWidth: 1.4 });
+    p.path("M74 40 Q66 34 56 44 Q62 54 72 50 Z", C.blue, { strokeWidth: 1.4 });
     p.dot(37, 45, 5); p.dot(63, 45, 5);
-    p.ell(50, 52, 11, 8, "#3a2a20", { strokeWidth: 1 });
+    p.ell(50, 52, 11, 8, INK, { strokeWidth: 1 });
     p.path("M40 58 q10 8 20 0", null, { strokeWidth: 2 });
   },
 };
