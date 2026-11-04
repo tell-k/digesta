@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="ja">
+<meta charset="utf-8">
+<title>グラレコ</title>
+<link rel="stylesheet" href="lib/fonts.css">
+<style>
+  /* breeze: 淡いブルーグレーの地に白い角丸パネル。濃紺の文字、章ごとの明るい差し色、黄色のマーカー。左 2/3 に 2×2 のパネル、右 1/3 に決定事項とネクストアクションを縦に */
+  :root { --ink:#1f2a44; --sub:#4a5470; --gray:#8b93a7; --line:#e1e5ee; --paper:#f2f5fa; --acc:#2f6fe4; --pri:#2f6fe4; --warn:#ee5a46; --ok:#35a055; --hl:#ffd84d;
+          --c1:#2f6fe4; --c2:#11a08f; --c3:#f08a1c; --c4:#ee5a46; --t1:#e3ecfd; --t2:#dcf4f0; --t3:#feefdc; --t4:#fde8e4; }
+  * { box-sizing:border-box; }
+  html,body { margin:0; }
+  /* 背景の飾り: 右上と左下の大きな丸(はみ出し判定に掛からないよう背景で描く) */
+  body { width:1840px; height:1035px; overflow:hidden; color:var(--ink); font-family:"Zen Maru Gothic", sans-serif; font-weight:500; font-size:15px; line-height:1.45;
+         background:radial-gradient(circle at 1740px 70px, #e3ecfd 260px, transparent 261px), radial-gradient(circle at 60px 1010px, #fff3cc 170px, transparent 171px), var(--paper); }
+  b { font-weight:700; }
+  mark { background:linear-gradient(transparent 58%, var(--hl) 58%); color:inherit; font-weight:700; padding:0 1px; }
+
+  /* ヘッダー: 左にタイトル、開催情報、アジェンダ */
+  header { position:absolute; left:36px; right:36px; top:22px; height:84px; display:flex; align-items:center; gap:30px; }
+  h1 { margin:0; font-size:42px; line-height:1.05; white-space:nowrap; font-weight:900; letter-spacing:-.01em; }
+  h1 b { color:var(--acc); font-weight:900; }
+  h1 small { display:table; font-size:12px; color:#fff; background:var(--acc); font-weight:700; letter-spacing:.2em; margin-bottom:8px; padding:2px 12px; border-radius:999px; }
+  .kv { font-size:14px; line-height:1.5; min-width:170px; padding:6px 14px; background:#fff; border-radius:12px; }
+  .kv b { display:block; color:var(--gray); font-size:11.5px; letter-spacing:.12em; font-weight:700; }
+  .agenda { margin-left:auto; display:flex; gap:10px; align-items:center; font-size:13.5px; font-weight:700; }
+  .agenda .ag { display:flex; align-items:center; gap:7px; white-space:nowrap; background:#fff; padding:4px 14px 4px 5px; border-radius:999px; }
+  .num { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; color:#fff; font-weight:900; font-size:13px; flex:none; border-radius:50%; }
+
+  /* 本体: 左 2/3 に 2×2 のパネル */
+  main { position:absolute; left:36px; width:1230px; top:124px; bottom:28px; display:grid; grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; gap:18px; }
+  .panel { background:#fff; padding:14px 18px; display:flex; flex-direction:column; gap:8px; --c:var(--c1); --t:var(--t1); border-radius:18px; box-shadow:0 6px 18px rgba(31,42,68,.06); position:relative; overflow:hidden; }
+  .panel.c1 { --c:var(--c1); --t:var(--t1); } .panel.c2 { --c:var(--c2); --t:var(--t2); } .panel.c3 { --c:var(--c3); --t:var(--t3); } .panel.c4 { --c:var(--c4); --t:var(--t4); }
+  .panel .hd { display:flex; align-items:center; gap:10px; margin:-14px -18px 2px; padding:10px 18px; background:var(--t); }
+  .panel .hd .num { width:32px; height:32px; font-size:16px; background:var(--c); }
+  .panel .ttl { font-size:21px; font-weight:900; line-height:1.2; }
+  .panel .who { font-size:12.5px; color:var(--c); font-weight:700; }
+  .cols { display:grid; grid-template-columns:1fr 1fr; gap:12px; align-items:start; flex:1; }
+  .tag { display:inline-block; align-self:flex-start; font-size:12px; font-weight:700; color:#fff; background:var(--c); border-radius:999px; padding:0 10px; margin-bottom:4px; letter-spacing:.04em; }
+  .big { font-size:16.5px; font-weight:700; line-height:1.35; }
+  .xl { font-size:27px; font-weight:900; color:var(--c); line-height:1.1; }
+  .note { font-size:13.5px; color:var(--sub); line-height:1.4; }
+  .row { display:flex; gap:10px; align-items:center; } .top { align-items:flex-start; } .grow { flex:1; min-width:0; }
+  .box { background:#fff; border:2px solid var(--line); border-radius:12px; padding:7px 10px; }
+  .tint { background:var(--t); border-radius:12px; padding:7px 10px; }
+  .chip { display:inline-block; font-size:13px; background:var(--paper); border-radius:999px; padding:1px 10px; margin:2px 2px 2px 0; white-space:nowrap; font-weight:700; }
+  .ar { color:var(--c); font-weight:900; flex:none; align-self:center; }
+  .steps { display:flex; align-items:stretch; gap:6px; }
+  .steps .st { flex:1; text-align:center; font-size:12.5px; line-height:1.3; background:var(--paper); border-radius:10px; padding:6px 4px; }
+  .steps .st b { display:block; font-size:13.5px; }
+  .steps .st.hot { background:var(--t); box-shadow:inset 0 0 0 2px var(--c); } .steps .st.done { color:var(--gray); }
+  ul.pts { margin:0; padding:0; list-style:none; } ul.pts li { padding-left:18px; position:relative; margin:2px 0; }
+  ul.pts li::before { content:""; position:absolute; left:2px; top:.5em; width:8px; height:8px; border-radius:50%; background:var(--c); }
+  .qa { display:inline-flex; align-items:center; justify-content:center; width:24px; height:24px; background:var(--hl); color:var(--ink); font-size:13px; font-weight:900; flex:none; border-radius:50%; }
+  .ok { color:var(--ok); font-weight:700; } .ng { color:var(--warn); font-weight:700; }
+
+  /* 右 1/3: 決定事項(上)とネクストアクション(下) */
+  aside { position:absolute; left:1290px; right:36px; top:124px; bottom:28px; display:flex; flex-direction:column; gap:18px; }
+  .foot { flex:1; padding:14px 18px; display:flex; flex-direction:column; background:#fff; border-radius:18px; box-shadow:0 6px 18px rgba(31,42,68,.06); }
+  .foot.dec-wrap { background:var(--acc); color:#fff; flex:none; }
+  .foot h2 { margin:0 0 8px; font-size:16px; font-weight:900; letter-spacing:.08em; display:flex; align-items:center; gap:8px; }
+  .foot.dec-wrap h2 .num { background:var(--hl); color:var(--ink); } .foot.todo-wrap h2 .num { background:var(--ink); }
+  ol.dec { margin:0; padding-left:22px; font-size:14px; line-height:1.5; }
+  ol.dec li { margin:0 0 6px; } ol.dec li::marker { color:var(--hl); font-weight:900; }
+  .dec-wrap b, .dec-wrap mark { color:#fff; } .dec-wrap mark { background:linear-gradient(transparent 62%, rgba(255,216,77,.55) 62%); }
+  table.todo { width:100%; border-collapse:collapse; font-size:13.5px; }
+  table.todo th { text-align:left; color:var(--gray); font-weight:700; border-bottom:2px solid var(--ink); padding:2px 6px; font-size:12px; letter-spacing:.08em; }
+  table.todo td { padding:5px 6px; border-bottom:2px dashed var(--line); vertical-align:top; }
+  table.todo td:nth-child(2) { white-space:nowrap; font-weight:700; color:var(--pri); } table.todo td:nth-child(3) { white-space:nowrap; color:var(--sub); }
+</style>
+
+<header>
+  <h1><small>MEETING NOTES — サンプル株式会社</small>プロダクト定例 <b>2026.01.15</b></h1>
+  <div class="kv"><b>日時</b>2026/1/15(木) 10:00〜11:00<br>オンライン</div>
+  <div class="kv" style="white-space:nowrap"><b>参加者</b>あおばさん、こだまさん<br>ひなたさん、みのりさん</div>
+  <div class="agenda">
+    <div class="ag"><span class="num" style="background:var(--c1)">1</span>リリース準備</div>
+    <div class="ag"><span class="num" style="background:var(--c2)">2</span>問い合わせ対応</div>
+    <div class="ag"><span class="num" style="background:var(--c3)">3</span>来期の計画</div>
+  </div>
+</header>
+
+<main>
+  <section class="panel c1">
+    <div class="hd"><span class="num">1</span><div><div class="ttl">v2.4 リリース準備の進捗</div><div class="who">報告: あおばさん</div></div></div>
+    <div class="row top"><i data-ico="rocket" data-s="40" data-c="blue"></i><div class="grow"><span class="tag">状況</span><div class="big">v2.4 は<mark>1/29(木)リリース</mark>の見込み</div><div class="note">実装は完了し、QA の 2 週目に入っている</div></div></div>
+    <div class="steps"><div class="st done"><b>実装</b>完了</div><span class="ar">→</span><div class="st hot"><b>QA</b>2 週目</div><span class="ar">→</span><div class="st"><b>ステージング</b>1/26〜</div><span class="ar">→</span><div class="st"><b>本番</b>1/29</div></div>
+    <div class="cols">
+      <div class="tint"><span class="tag">残課題</span><div><span class="xl">5</span> 件</div><div class="note">うち重大 1 件(決済画面の表示崩れ)</div></div>
+      <ul class="pts"><li>リリースノートは下書き済み</li><li>ヘルプの更新が<mark>未着手</mark></li><li>告知は 1/27 に出す</li></ul>
+    </div>
+    <div class="box"><span class="tag">主な変更</span><br><span class="chip">検索の絞り込み</span><span class="chip">請求書の PDF 出力</span><span class="chip">通知の設定画面</span><span class="chip">管理画面の権限</span></div>
+    <div class="row"><i data-ico="warning" data-s="28" data-c="coral"></i><div class="note">重大 1 件が 1/22 までに直らなければ、リリースを 2/5 に延期する</div></div>
+  </section>
+
+  <section class="panel c2">
+    <div class="hd"><span class="num">2</span><div><div class="ttl">問い合わせ対応の改善</div><div class="who">報告: こだまさん</div></div></div>
+    <div class="row top"><i data-ico="chat" data-s="40" data-c="teal"></i><div class="grow"><span class="tag">現状</span><div class="big">問い合わせの<mark>4 割</mark>がパスワード再設定</div><div class="note">月 120 件。初回の返信まで平均 6 時間かかっている</div></div></div>
+    <div class="cols">
+      <div class="box"><span class="tag">目標</span><div class="xl">6h → 2h</div><div class="note">初回の返信までの時間</div></div>
+      <ul class="pts"><li>よくある質問を <b>10 本</b>追加</li><li>フォームに「種類」の選択を追加</li><li>定型文で一次回答する</li></ul>
+    </div>
+    <div class="row top"><span class="qa">Q</span><div class="grow"><b>定型文だと冷たい印象にならない?</b><div class="note">文末に担当者の名前を必ず入れる(こだまさん)</div></div></div>
+    <span class="tag">新しい流れ</span>
+    <div class="steps"><div class="st"><b>受付</b>フォーム</div><span class="ar">→</span><div class="st hot"><b>振り分け</b>種類で自動</div><span class="ar">→</span><div class="st"><b>一次回答</b>定型文</div><span class="ar">→</span><div class="st"><b>解決</b>担当者</div></div>
+  </section>
+
+  <section class="panel c3" style="grid-column:span 2">
+    <div class="hd"><span class="num">3</span><div><div class="ttl">来期の計画</div><div class="who">報告: ひなたさん</div></div></div>
+    <div class="cols">
+      <div>
+        <div class="row top"><i data-ico="target" data-s="40" data-c="teal"></i><div class="grow"><span class="tag">重点テーマ</span><div class="big">来期は<mark>検索の高速化</mark>を最優先にする</div><div class="note">利用者アンケートで不満の 1 位が「検索が遅い」だった</div></div></div>
+        <ul class="pts" style="margin-top:8px"><li><span class="ok">○</span> 検索の高速化 — 表示まで 3 秒 → <b>1 秒</b></li><li><span class="ok">○</span> モバイル対応 — まず閲覧系の画面から</li><li><span class="ng">△</span> 運用コストの削減 — 来期は調査まで</li></ul>
+      </div>
+      <div>
+        <div class="tint"><div class="row top"><span class="qa">Q</span><div class="grow"><b>モバイルは全画面を対応する?</b><div class="note">まず閲覧系の画面だけ。入力系は再来期に回す(ひなたさん)</div></div></div></div>
+        <span class="tag" style="margin-top:10px">決めるまでの流れ</span>
+        <div class="steps"><div class="st hot"><b>1 月</b>たたき台を共有</div><span class="ar">→</span><div class="st"><b>2 月</b>工数の見積もり</div><span class="ar">→</span><div class="st"><b>3 月</b>計画を確定</div></div>
+      </div>
+    </div>
+    <div class="row top" style="gap:12px">
+      <div class="tint grow"><span class="tag">検索の表示時間</span><div><span class="xl">3 秒 → 1 秒</span></div><div class="note">よく使う 5 画面で測る</div></div>
+      <div class="tint grow"><span class="tag">スマホからの閲覧</span><div><span class="xl">35%</span></div><div class="note">前年から 10 ポイント増えている</div></div>
+      <div class="tint grow"><span class="tag">運用の工数</span><div><span class="xl">月 40 時間</span></div><div class="note">削れる作業を来期中に洗い出す</div></div>
+    </div>
+  </section>
+</main>
+
+<aside>
+  <div class="foot dec-wrap"><h2><span class="num">✓</span>決定事項</h2><ol class="dec">
+    <li>v2.4 は <b>1/29(木)</b>にリリース。重大不具合が 1/22 までに直らなければ 2/5 に延期</li>
+    <li>よくある質問を 10 本追加し、問い合わせフォームに「種類」の選択を加える</li>
+    <li>来期の重点は<b>検索の高速化</b>を最優先にする</li>
+  </ol></div>
+  <div class="foot todo-wrap"><h2><span class="num">→</span>ネクストアクション</h2>
+    <table class="todo"><tr><th>タスク</th><th>担当</th><th>期限</th></tr>
+      <tr><td>決済画面の表示崩れを修正</td><td>あおばさん</td><td>1/22</td></tr>
+      <tr><td>リリース告知文の準備</td><td>みのりさん</td><td>1/27</td></tr>
+      <tr><td>よくある質問 10 本の原稿作成</td><td>こだまさん</td><td>1/28</td></tr>
+      <tr><td>来期計画のたたき台を共有</td><td>ひなたさん</td><td>1/30</td></tr>
+    </table>
+  </div>
+</aside>
+
+<script src="lib/pict.js"></script>
+<script src="lib/icons.js"></script>
+<script>
+  document.fonts.ready.then(() => document.fonts.load('16px "Zen Maru Gothic"', "あ")).then(() => {
+    mountIcons(); mountBoxes(); mountArrows();
+    document.querySelectorAll(".panel").forEach((c, i) => {
+      const last = c.lastElementChild.getBoundingClientRect().bottom, box = c.getBoundingClientRect().bottom;
+      console.log("panel", i + 1, "余白(px):", Math.round(box - last));
+    });
+    window.READY = true;
+  });
+</script>
+</html>

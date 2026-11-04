@@ -1,0 +1,42 @@
+<!doctype html>
+<!-- breeze: 録画がない話題で、本編の枠に映すスライド(1344x756)。#ch=1&topic=0 で章と話題を指定し、cuts.yaml の slide を描く。
+     まとめカードと同じ白い地に濃紺の文字、章の色の丸い札と黄色のマーカーで描く -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; }
+  body { width:1344px; height:756px; overflow:hidden; background:#ffffff; color:#1f2a44; font-family:var(--font), sans-serif; }
+  #s { position:absolute; inset:0; padding:60px 80px 52px 90px; display:flex; flex-direction:column; }
+  #s::before { content:""; position:absolute; right:-120px; top:-140px; width:420px; height:420px; border-radius:50%; background:var(--t); }
+  #s > * { position:relative; }
+  .label { align-self:flex-start; font-size:24px; font-weight:700; color:#fff; background:var(--c); padding:4px 22px; border-radius:999px; margin-bottom:24px; letter-spacing:.04em; }
+  h1 { font-size:56px; line-height:1.3; margin:0 0 36px; font-weight:900; }
+  h1 mark, li mark { background:linear-gradient(transparent 60%, #ffd84d 60%); color:inherit; }
+  ul { margin:0; padding:0; display:flex; flex-direction:column; gap:20px; }
+  li { list-style:none; font-size:36px; line-height:1.4; padding:0 0 18px 44px; position:relative; border-bottom:2px dashed #e1e5ee; font-weight:500; }
+  li:last-child { border-bottom:none; }
+  li::before { content:""; position:absolute; left:6px; top:18px; width:16px; height:16px; border-radius:50%; background:var(--c); }
+  .note { margin-top:auto; font-size:24px; color:#4a5470; }
+</style>
+<div id="s"></div>
+<script src="episode.js"></script>
+<script>
+  // pict.js の PAL と同じ色(章の色名 → [hex, tint])
+  const COLORS = { coral: ["#ee5a46", "#fde8e4"], magenta: ["#d64391", "#fbe6f1"], orange: ["#f08a1c", "#feefdc"], teal: ["#11a08f", "#dcf4f0"], blue: ["#2f6fe4", "#e3ecfd"], sky: ["#1b9ad6", "#def2fb"], navy: ["#3b4a8f", "#e5e8f4"], purple: ["#7457d6", "#ece7fb"], green: ["#35a055", "#e1f4e6"], yellow: ["#e8a400", "#fff3cc"] };
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const ch = EP.chapters[(+q.ch || 1) - 1], slide = ch.topics[+q.topic || 0].slide || {};
+  const root = document.documentElement.style;
+  const [hex, tint] = COLORS[ch.color] || COLORS.blue;
+  root.setProperty("--c", hex); root.setProperty("--t", tint);
+  root.setProperty("--font", `"${EP.slide_font || "sans-serif"}"`);
+  document.getElementById("s").innerHTML =
+    (slide.label ? `<div class="label">${slide.label}</div>` : "") +
+    (slide.heading ? `<h1>${slide.heading}</h1>` : "") +
+    `<ul>${(slide.points || []).map((p) => `<li>${p}</li>`).join("")}</ul>` +
+    (slide.note ? `<div class="note">${slide.note}</div>` : "");
+  // 入りきらないときは文字を縮める
+  const s = document.getElementById("s");
+  for (let k = 1; k > 0.6 && s.scrollHeight > s.clientHeight + 1; k -= 0.04) s.querySelectorAll("h1,li,.label,.note").forEach((el) => (el.style.zoom = k));
+  document.fonts.ready.then(() => { window.READY = true; });
+</script>
+</html>

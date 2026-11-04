@@ -1,0 +1,190 @@
+<!doctype html>
+<!-- breeze スタイルの動画カード(business をもとに、淡いブルーグレーの地に白い角丸パネル、黄色のマーカー、Zen Maru Gothic)。#id=opening|chapter|recap|ending|outro|thumb &ch=章番号 &nd=ナレーション秒 &img=グラレコ画像の URL
+     内容は episode.js(digest.py が episode.yaml から生成)から読む。アニメーションはフェードとスライドとポップだけ。seek(ms) で時刻を指定して1フレームずつ撮る -->
+<html lang="ja"><meta charset="utf-8">
+<link rel="stylesheet" href="fonts.css">
+<style>
+  * { box-sizing:border-box; } html,body { margin:0; }
+  body { width:1920px; height:1080px; overflow:hidden; color:#1f2a44; font-family:"Zen Maru Gothic", sans-serif; font-weight:500; position:relative; background:#f2f5fa; }
+  section { position:absolute; inset:0; display:none; overflow:hidden; } section.on { display:block; }
+  .abs { position:absolute; }
+  .in { animation:fadein .6s ease-out both; animation-delay:var(--d,0s); }
+  .up { animation:slideup .6s ease-out both; animation-delay:var(--d,0s); }
+  .pop { animation:pop .5s cubic-bezier(.3,1.5,.6,1) both; animation-delay:var(--d,0s); }
+  @keyframes fadein { from { opacity:0; } to { opacity:1; } }
+  @keyframes slideup { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
+  @keyframes pop { from { opacity:0; transform:scale(.6); } to { opacity:1; transform:none; } }
+  @keyframes kb { from { transform:scale(1.0); } to { transform:scale(1.04); } }
+  mark { background:linear-gradient(transparent 60%, #ffd84d 60%); color:inherit; font-weight:700; padding:0 2px; }
+  b { font-weight:700; }
+  /* 背景の飾り: 隅の大きな丸と、ドットの網 */
+  .blob { position:absolute; border-radius:50%; }
+  .dots { position:absolute; background-image:radial-gradient(#c9d3e6 3px, transparent 3.5px); background-size:28px 28px; }
+  /* 共通ヘッダー: 色つきの丸い札と見出し */
+  .head { position:absolute; left:96px; right:96px; top:56px; height:64px; display:flex; align-items:center; gap:22px; }
+  .head .k { font-size:22px; color:#fff; background:#2f6fe4; letter-spacing:.18em; font-weight:700; padding:6px 22px 6px 26px; border-radius:999px; }
+  .head .t { font-size:30px; font-weight:700; }
+  .foot { position:absolute; left:96px; right:96px; bottom:44px; display:flex; justify-content:space-between; font-size:24px; color:#8b93a7; }
+  .panel { background:#ffffff; color:#1f2a44; border-radius:28px; box-shadow:0 10px 30px rgba(31,42,68,.08); }
+  .n { border-radius:50%; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:900; flex:none; }
+
+  /* opening */
+  #opening h1 { left:96px; top:170px; margin:0; font-size:96px; line-height:1.15; font-weight:900; letter-spacing:-.01em; }
+  #opening h1 b { color:#2f6fe4; font-weight:900; }
+  #opening .bubble { left:760px; top:186px; font-size:32px; font-weight:700; background:#ffd84d; padding:10px 28px; border-radius:999px; }
+  #opening .date { left:100px; top:320px; font-size:34px; color:#4a5470; }
+  #opening .agenda { left:96px; top:410px; width:1728px; padding:30px 56px 22px; }
+  #opening .agenda h3 { margin:0 0 6px; font-size:24px; color:#8b93a7; font-weight:700; letter-spacing:.2em; }
+  #opening .ag { display:flex; align-items:center; gap:28px; padding:18px 0; border-top:2px dashed #e1e5ee; font-size:42px; font-weight:700; }
+  #opening .ag:first-of-type { border-top:none; }
+  #opening .ag .n { width:68px; height:68px; font-size:34px; }
+  #opening .ag .who { margin-left:auto; font-size:30px; color:#8b93a7; font-weight:500; }
+
+  /* chapter */
+  .chap .num { left:110px; top:250px; width:360px; height:360px; font-size:200px; }
+  .chap .panel { left:560px; top:230px; width:1264px; min-height:440px; padding:60px 70px; }
+  .chap .who { display:inline-block; font-size:30px; font-weight:700; padding:4px 24px; border-radius:999px; margin-bottom:22px; }
+  .chap .ttl { font-size:74px; line-height:1.22; font-weight:900; }
+  .chap .sub { font-size:34px; color:#4a5470; line-height:1.45; margin-top:30px; }
+
+  /* recap */
+  .recap .panel { left:96px; top:160px; width:1728px; height:820px; padding:34px 60px 20px; }
+  .recap h2 { margin:0 0 6px; font-size:42px; font-weight:900; display:flex; align-items:baseline; gap:24px; }
+  .recap h2 small { font-size:26px; color:#8b93a7; font-weight:500; }
+  .recap .pt { display:flex; align-items:center; gap:34px; padding:26px 0; border-top:2px dashed #e1e5ee; }
+  .recap .pt .n { width:60px; height:60px; font-size:32px; }
+  .recap .pt .tx { font-size:46px; line-height:1.35; font-weight:700; }
+  .recap .pt small { display:block; font-size:28px; color:#4a5470; margin-top:8px; font-weight:500; }
+
+  /* ending */
+  #ending .img { left:300px; top:60px; width:1320px; height:742px; overflow:hidden; border-radius:24px; box-shadow:0 12px 36px rgba(31,42,68,.16); background:#fff; }
+  #ending .img img { width:100%; height:100%; display:block; animation:kb 14s linear both; transform-origin:50% 40%; }
+  #ending .msg { left:0; right:0; top:850px; text-align:center; font-size:50px; font-weight:900; }
+  #ending .msg2 { left:0; right:0; top:932px; text-align:center; font-size:30px; color:#4a5470; }
+
+  /* outro */
+  #outro h1 { left:96px; top:170px; margin:0; font-size:88px; font-weight:900; }
+  #outro .thx { left:100px; top:310px; font-size:32px; color:#4a5470; }
+  #outro .board { left:96px; top:410px; width:1728px; padding:44px 60px; }
+  #outro .board .tag { display:inline-block; color:#1f2a44; background:#ffd84d; font-size:28px; padding:4px 24px; margin-right:20px; font-weight:900; border-radius:999px; }
+  #outro .board .lead { font-size:30px; color:#4a5470; }
+  #outro .board .hl { font-size:50px; font-weight:900; margin-top:22px; line-height:1.3; }
+  #outro .board .hl b { color:#2f6fe4; }
+  #outro .roles { display:flex; gap:40px; margin-top:30px; }
+  #outro .role { flex:1; display:flex; align-items:center; gap:24px; padding:20px 30px; border-radius:20px; background:#f2f5fa; font-size:36px; font-weight:700; }
+  #outro .role small { display:block; font-size:24px; color:#4a5470; font-weight:500; margin-top:4px; }
+  #outro .bye { left:96px; top:900px; font-size:44px; font-weight:900; }
+  #outro .credit { left:96px; bottom:44px; font-size:24px; color:#8b93a7; }
+
+  /* thumb: 動画のサムネイル(先頭フレーム)。タイトルスライドの体裁 */
+  #thumb .card { position:absolute; left:80px; top:80px; right:80px; bottom:80px; background:#fff; border-radius:40px; box-shadow:0 14px 40px rgba(31,42,68,.10); overflow:hidden; }
+  #thumb .kicker { left:200px; top:230px; font-weight:700; font-size:30px; letter-spacing:.24em; color:#fff; background:#2f6fe4; padding:8px 28px 8px 32px; border-radius:999px; }
+  #thumb h1 { left:194px; top:310px; margin:0; font-size:150px; line-height:1.05; font-weight:900; letter-spacing:-.01em; white-space:nowrap; }
+  #thumb h1 b { color:#2f6fe4; }
+  #thumb .sub { left:200px; top:500px; font-size:56px; font-weight:900; }
+  #thumb .sub mark { padding:0 6px; }
+  #thumb .meta { left:200px; top:600px; font-size:34px; color:#4a5470; line-height:1.6; }
+  #thumb .topics { left:200px; right:200px; bottom:170px; display:flex; flex-wrap:wrap; gap:16px 16px; }
+  #thumb .topics > span { display:flex; align-items:center; gap:14px; font-size:30px; font-weight:700; padding:10px 28px 10px 10px; border-radius:999px; background:#f2f5fa; white-space:nowrap; }
+  #thumb .topics .n { width:44px; height:44px; font-size:24px; }
+</style>
+
+<section id="opening"></section>
+<section id="chapter" class="chap"></section>
+<section id="recap" class="recap"></section>
+<section id="ending"></section>
+<section id="outro"></section>
+<section id="thumb"></section>
+
+<script src="pict.js"></script><script src="episode.js"></script><script src="icons.js"></script>
+<script>
+  const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
+  const id = q.id || "opening", CH = EP.chapters, ch = CH[(+q.ch || 1) - 1], pal = PAL[ch.color] || PAL.blue;
+  const ND = +q.nd || 8;
+  const el = document.getElementById(id);
+  el.classList.add("on");
+  const s1 = (x) => x.toFixed(2) + "s";
+  // 背景の飾り。c は丸の色(薄い色)
+  const deco = (c1, c2) => `
+    <div class="blob in" style="right:-160px;top:-200px;width:620px;height:620px;background:${c1}"></div>
+    <div class="blob in" style="left:-120px;bottom:-180px;width:420px;height:420px;background:${c2}"></div>
+    <div class="dots in" style="right:120px;bottom:70px;width:280px;height:140px"></div>`;
+  const head = (k, t, c) => `<div class="head in"><span class="k" style="${c ? "background:" + c : ""}">${k}</span><span class="t">${t || ""}</span></div>`;
+  const foot = `<div class="foot in" style="--d:.2s"><span>${EP.series || ""}</span><span>${EP.label} ${EP.number || ""} ${EP.badge}</span></div>`;
+  const P = (c) => PAL[c] || PAL.blue;
+
+  if (id === "opening") {
+    const step = Math.max(0.6, (ND * 0.7) / Math.max(CH.length, 1));
+    el.innerHTML = deco("#e3ecfd", "#fff3cc") + head(EP.badge.toUpperCase(), "") +
+      `<h1 class="abs in" style="--d:.2s">${EP.label} <b>${EP.number || ""}</b></h1>
+      ${EP.opening_bubble ? `<div class="abs bubble pop" style="--d:.6s;left:${140 + (EP.label + " " + (EP.number || "")).length * 54}px">${EP.opening_bubble}</div>` : ""}
+      <div class="abs date in" style="--d:.5s">${[EP.series, EP.date].filter(Boolean).join("　")}</div>
+      <div class="abs agenda panel up" style="--d:${s1(ND * 0.15)}"><h3>AGENDA</h3>` +
+      CH.map((c, i) => `<div class="ag up" style="--d:${s1(ND * 0.2 + 0.3 + i * step)}"><span class="n" style="background:${P(c.color).hex}">${c.n}</span><span>${c.title}</span>${c.who ? `<span class="who">${c.who}</span>` : ""}</div>`).join("") +
+      `</div>` + foot;
+  }
+  if (id === "chapter") {
+    el.innerHTML = deco(pal.tint, "#fff3cc") + head("CHAPTER", `${EP.label} ${EP.number || ""}`, pal.hex) + `
+      <div class="abs num n pop" style="background:${pal.hex};--d:.1s">${ch.n}</div>
+      <div class="abs panel up" style="--d:.3s">
+        ${ch.who ? `<div class="who up" style="--d:.4s;background:${pal.tint};color:${pal.hex}">${ch.who}</div>` : ""}
+        <div class="ttl up" style="--d:.5s">${ch.title}</div>
+        <div class="sub up" style="--d:.8s">${ch.sub_card || ch.sub || ""}</div>
+      </div>` + foot;
+  }
+  if (id === "recap") {
+    const items = (ch.recap || []).slice(0, 3), step = Math.max(1.4, ND * 0.26);
+    el.innerHTML = deco(pal.tint, "#fff3cc") + head("RECAP", `${EP.label} ${EP.number || ""}`, pal.hex) + `
+      <div class="abs panel in" style="--d:.2s"><h2>${ch.recap_title || "ポイント"}<small>${ch.who ? ch.who + " / " : ""}${ch.title}</small></h2>` +
+      items.map((r, i) => `
+      <div class="pt up" style="--d:${s1(0.4 + i * step)}">
+        <span class="n" style="background:${pal.hex}">${i + 1}</span>
+        <i data-ico="${r.icon}" data-s="84" data-c="${ch.color}"></i>
+        <div class="tx">${r.text}<small>${r.sub || ""}</small></div>
+      </div>`).join("") + `</div>` + foot;
+  }
+  if (id === "ending") {
+    const e = EP.ending || {};
+    el.innerHTML = deco("#e3ecfd", "#fff3cc") + `
+      <div class="abs img in"><img src="${q.img || ""}"></div>
+      <div class="abs msg up" style="--d:.6s">${e.message || ""}</div>
+      <div class="abs msg2 up" style="--d:1.0s">${e.sub || ""}</div>`;
+  }
+  if (id === "outro") {
+    const o = EP.outro || {}, b = o.board, roles = (b && b.roles) || [];
+    el.innerHTML = deco("#e3ecfd", "#fff3cc") + head("THANKS!", `${EP.label} ${EP.number || ""}`) + `
+      <h1 class="abs in">${o.headline || ""}</h1>
+      <div class="abs thx up" style="--d:.4s">${o.thanks || ""}</div>` +
+      (b ? `<div class="abs board panel up" style="--d:${s1(ND * 0.25)}">
+        <div><span class="tag">${b.tag || ""}</span><span class="lead">${b.lead || ""}</span></div>
+        <div class="hl">${b.text || ""}</div>
+        ${roles.length ? `<div class="roles">${roles.slice(0, 2).map((r, i) => `<div class="role up" style="--d:${s1(ND * (0.5 + 0.12 * i))}"><i data-ico="${r.icon}" data-s="64" data-c="${r.color || ch.color}"></i><div>${r.name}<small>${r.sub || ""}</small></div></div>`).join("")}</div>` : ""}
+      </div>` : "") +
+      `<div class="abs bye up" style="${b ? "" : "top:500px;font-size:60px;"}--d:${s1(ND * 0.85)}">${o.bye || ""}</div>
+      ${EP.credit ? `<div class="abs credit">${EP.credit}</div>` : ""}`;
+  }
+
+  if (id === "thumb") {
+    el.innerHTML = `
+      <div class="blob" style="right:-140px;top:-160px;width:640px;height:640px;background:#e3ecfd"></div>
+      <div class="blob" style="left:-100px;bottom:-160px;width:420px;height:420px;background:#fff3cc"></div>
+      <div class="card"><div class="dots" style="right:70px;top:70px;width:300px;height:170px"></div></div>
+      <div class="abs kicker">DIGEST</div>
+      <h1 class="abs">${EP.label} <b>${EP.number || ""}</b></h1>
+      <div class="abs sub"><mark>${EP.opening_bubble || EP.badge || ""}</mark></div>
+      <div class="abs meta">${[EP.series, EP.date].filter(Boolean).join("　")}</div>
+      <div class="abs topics">${CH.map((c) => `<span><span class="n" style="background:${P(c.color).hex}">${c.n}</span>${c.short || c.who || c.title}</span>`).join("")}</div>`;
+  }
+
+  document.fonts.ready.then(() => document.fonts.load('16px "Zen Maru Gothic"', "あ")).then(async () => {
+    mountIcons();
+    await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
+    const anims = document.getAnimations();
+    anims.forEach((a) => a.pause());
+    window.seek = (ms) => anims.forEach((a) => (a.currentTime = ms));
+    window.END = Math.max(0, ...anims.filter((a) => a.effect.getComputedTiming().iterations === 1 && a.animationName !== "kb").map((a) => a.effect.getComputedTiming().endTime));
+    seek(0);
+    window.READY = true;
+  });
+</script>
+</html>
