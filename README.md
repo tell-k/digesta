@@ -19,6 +19,7 @@ Styles (switch with the `style` setting; the same content can be re-rendered in 
 - `business`: white background, sans-serif, straight lines, no characters (for meetings and reports)
 - `pop`: colorful minutes-style layout; character illustrations are generated with Gemini
 - `mono`: yellow, black and gray only
+- `breeze`: business-like but brighter and more casual; pale blue-gray background, white rounded panels, yellow highlighter, rounded sans-serif, no characters
 
 The same fictional study session (`skills/digesta/assets/examples/study/`) as a graphic recording in each style (sources: `previews/<style>.html`; doodle: `examples/study/grareco.html`):
 
@@ -27,6 +28,8 @@ The same fictional study session (`skills/digesta/assets/examples/study/`) as a 
 | ![doodle](previews/doodle.png) | ![business](previews/business.png) |
 | **pop** | **mono** |
 | ![pop](previews/pop.png) | ![mono](previews/mono.png) |
+| **breeze** (a fictional product meeting, `previews/breeze.html`) | |
+| ![breeze](previews/breeze.png) | |
 
 Rebuilding:
 
@@ -220,7 +223,7 @@ Each file starts with a settings block between `---` lines. Meeting settings ove
 
 | Key | Values | Default | Description |
 |---|---|---|---|
-| `style` | `doodle` / `business` / `pop` / `mono`, or a style found in `styles_path` | `doodle` | Visual style |
+| `style` | `doodle` / `business` / `pop` / `mono` / `breeze`, or a style found in `styles_path` | `doodle` | Visual style |
 | `styles_path` | Folder paths (`:`-separated or a list) | empty | Extra folders to search for styles. See "Custom styles" below |
 | `image_model` | Model ID | `gemini-3.1-flash-image` | Used to generate `pop` characters |
 | `external_api` | `ask` / `allow` / `deny` | `ask` | Whether narration scripts etc. may be sent to Gemini. See "External services" |
@@ -308,7 +311,8 @@ digesta/
         │   ├── doodle/          Hand-drawn style (illustrations, cards, video frame, graphic-recording template)
         │   ├── business/        Business style (same parts; single-color line pictograms)
         │   ├── pop/             Colorful minutes style (characters generated with Gemini)
-        │   └── mono/            Yellow / black / gray style
+        │   ├── mono/            Yellow / black / gray style
+        │   └── breeze/          Bright business style (rounded panels, yellow highlighter)
         ├── templates/           Templates (rules, minutes, the three video texts)
         ├── examples/            A fictional study session (study/)
         └── reference.docx       Style reference for docx minutes

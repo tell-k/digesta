@@ -17,6 +17,7 @@
 - `business`: 白地・ゴシック体・直線、キャラクターなし(会議や報告向け)
 - `pop`: カラフルな議事録風。人物のイラストは Gemini の画像生成で作る
 - `mono`: 黄・黒・グレーの3色だけ
+- `breeze`: ビジネス寄りだが明るくカジュアル。淡いブルーグレーの地に白い角丸パネル、黄色のマーカー、丸ゴシック、キャラなし
 
 同じ架空の勉強会(`skills/digesta/assets/examples/study/`)を各スタイルでグラレコにした見本(描画元は `previews/<スタイル>.html`。doodle は `examples/study/grareco.html`):
 
@@ -25,6 +26,8 @@
 | ![doodle](previews/doodle.png) | ![business](previews/business.png) |
 | **pop** | **mono** |
 | ![pop](previews/pop.png) | ![mono](previews/mono.png) |
+| **breeze**(架空のプロダクト定例。`previews/breeze.html`) | |
+| ![breeze](previews/breeze.png) | |
 
 作り直し:
 
@@ -218,7 +221,7 @@ GEMINI_API_KEY=ここにキー
 
 | キー | 値 | 既定 | 説明 |
 |---|---|---|---|
-| `style` | `doodle` / `business` / `pop` / `mono`、または `styles_path` にあるスタイル名 | `doodle` | 見た目のスタイル |
+| `style` | `doodle` / `business` / `pop` / `mono` / `breeze`、または `styles_path` にあるスタイル名 | `doodle` | 見た目のスタイル |
 | `styles_path` | フォルダのパス(`:` 区切りかリスト) | 空 | 同梱していないスタイルを探すフォルダ。下の「独自のスタイル」を参照 |
 | `image_model` | モデル ID | `gemini-3.1-flash-image` | pop のキャラクター画像の生成に使う |
 | `external_api` | `ask` / `allow` / `deny` | `ask` | Gemini にナレーション原稿などを送ってよいか。下の「外部送信」を参照 |
@@ -306,7 +309,8 @@ digesta/
         │   ├── doodle/          手描き風スタイル(イラスト部品、カード、動画の枠、グラレコ雛形)
         │   ├── business/        ビジネススタイル(同上。ピクトグラムは単色の線画)
         │   ├── pop/             カラフルな議事録風スタイル(キャラクターは Gemini で生成)
-        │   └── mono/            黄・黒・グレーの3色スタイル
+        │   ├── mono/            黄・黒・グレーの3色スタイル
+        │   └── breeze/          明るめのビジネス風スタイル(角丸のパネル、黄色のマーカー)
         ├── templates/           ひな形(ルール、議事録、動画の3つのテキスト)
         ├── examples/            作例(架空の勉強会 study/)
         └── reference.docx       議事録 docx の体裁のひな形
