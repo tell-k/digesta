@@ -97,6 +97,36 @@
 - スライドの見た目は skill の `assets/slide.html`(どのスタイルでも共通。スタイルのフォルダに `slide.html` を置けば差し替えられる)。字幕フォントと背景色はスタイルのもの、色は章の `color`。背景が暗いスタイル(ut の濃紺など)では文字が白になる。文字が多いと自動で縮むが、縮みすぎるなら箇条を減らす。
 - `plan` の尺の見積もりでは、slide の話題は `slide` と表示され、ナレーションの長さ(音声がまだなら文字数)から計算される。
 
+### 1 つの話題に複数枚のスライド(slides)
+
+記事の解説のように 1 話題を 60 秒以上かけて説明するときは、`slide` の代わりに `slides`(リスト)を書く。スライドごとにナレーションを付け、話題の最初と最後だけ画面全体をフェードし、間のスライドは枠を残して中身だけを入れ替える。
+
+```yaml
+    - title: MCPの復権
+      icons: [server]
+      slides:
+        - kind: shot                     # 記事の画面。image は digest/ からの相対パス
+          image: media/mcp.png           # digest.py shot で撮る
+          url: https://example.com/post
+          title: 記事の題名
+          meta: 著者 / 2026-11-07
+          buzz: [はてブ 226 users, コメント 12]   # 話題度のバッジ(任意)
+        - heading: 見出し<mark>強調</mark>      # kind を省くと text(slide と同じ書き方)
+          points: [箇条1, 箇条2]
+        - kind: image                    # 記事の図や gif(gif は動く)
+          image: media/mcp_02.png
+          heading: 見出し(任意)
+          caption: 図の説明(任意)
+          points: [箇条]                  # 任意。あれば図の右に出す
+          source: 記事の図(example.com)   # 出典。記事の図なら必ず書く
+        - kind: html                     # 図解のアニメーション
+          html: slides/mcp_seq.html
+```
+
+- ナレーションは `## t章-話題.枚`(章・話題・枚とも 1 から。`## t1-1.3` は 1 章 1 つ目の話題の 3 枚目)。
+- `kind: html` は digest/ 以下の HTML(1344x756)を開き、CSS アニメーション(`document.getAnimations()`)を時刻指定で 1 フレームずつ撮る。時刻 0 がそのスライドの始まり。アニメーションが終わったあとは最後のフレームを止めて流す。無限ループのアニメーションがあると、スライドの長さ全部を撮るので遅い。`#nd=<秒>` にスライドの長さが入る。非同期の準備が要るなら `window.PREPARE`(Promise を返す関数)を定義する。
+- 素材は `digest.py shot <会議> <名前> <URL>`(記事の最初の画面、`digest/media/<名前>.png`)と `digest.py figures <会議> <名前> <URL>`(本文の画像と og:image を `digest/media/<名前>_NN.*` に、番号つき一覧を `<名前>_sheet.jpg` に)で取る。一覧を見て、装飾でない図だけを使う。
+
 ## 3. 動画の情報(episode.yaml)
 
 作例をコピーして書き換える。項目の意味は作例のコメントにある。
