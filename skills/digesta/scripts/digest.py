@@ -650,18 +650,35 @@ def cmd_figures(ep, a):
     md = ep.digest / "media"; md.mkdir(parents=True, exist_ok=True)
     p, b, pg = browser(1280, 900, 1)
     got = []
+    # 画像は取り直さず、ブラウザが読み込んだレスポンスの中身を使う(ページが指す任意の URL へ、こちらから別にリクエストを出さない)。
+    # リダイレクトされた画像は、元の URL でも引けるようにする
+    loaded = {}
+
+    def on_response(r):
+        if r.request.resource_type == "image" and r.ok:
+            q = r.request
+            while q:
+                loaded.setdefault(q.url, r); q = q.redirected_from
+
+    pg.on("response", on_response)
     try:
         pg.goto(url, wait_until="load", timeout=60000)
         pg.evaluate("async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)); } window.scrollTo(0, 0); }")
         pg.wait_for_timeout(1500)
-        found = pg.evaluate("""() => {
+        found = pg.evaluate("""async () => {
           const root = document.querySelector('article') || document.querySelector('main') || document.body;
           const all = [...root.querySelectorAll('img')];
-          const og = document.querySelector('meta[property="og:image"]');
+          const m = document.querySelector('meta[property="og:image"]');
+          let og = '';
+          if (m && m.content) {  // og:image はページが読み込まないので、ページの中で読み込ませる
+            try { og = new URL(m.content, location.href).href; } catch (e) {}
+            if (og) await new Promise((r) => { const im = new Image(); im.onload = im.onerror = r; im.src = og; setTimeout(r, 15000); });
+          }
           const list = all.map((im, i) => ({ i, src: im.currentSrc || im.src, alt: im.alt || '', w: im.naturalWidth, h: im.naturalHeight }))
             .filter((x) => x.w >= 300 && x.h >= 150);
-          return { og: og ? og.content : '', list };
+          return { og, list };
         }""")
+        pg.wait_for_timeout(300)
         items = ([{"i": -1, "src": found["og"], "alt": "og:image", "w": 0, "h": 0}] if found["og"] else []) + found["list"]
         seen = set()
         for x in items:
@@ -671,11 +688,11 @@ def cmd_figures(ep, a):
             seen.add(src)
             n = "og" if x["i"] < 0 else f"{len([g for g in got if g[0] != 'og']) + 1:02d}"
             data = None
-            try:
-                r = pg.request.get(src, headers={"Referer": url}, timeout=30000)
-                data = r.body() if r.ok else None
-            except Exception:
-                pass
+            if src in loaded:
+                try:
+                    data = loaded[src].body()
+                except Exception:
+                    pass
             dst = None
             if data:
                 try:
