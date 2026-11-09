@@ -17,6 +17,27 @@
   li:last-child { border-bottom:none; }
   li::before { content:""; position:absolute; left:6px; top:18px; width:16px; height:16px; border-radius:50%; background:var(--c); }
   .note { margin-top:auto; font-size:24px; color:#4a5470; }
+  /* kind: shot(記事の画面)/ image(記事の図や gif) */
+  .row { display:flex; gap:44px; flex:1; min-height:0; }
+  .browser { flex:0 0 760px; height:500px; border-radius:14px; overflow:hidden; background:#fff; box-shadow:0 10px 30px rgba(31,42,68,.18); border:2px solid #dfe4ee; display:flex; flex-direction:column; }
+  .bar { height:34px; flex:0 0 34px; background:#eef1f6; display:flex; align-items:center; gap:8px; padding:0 14px; }
+  .bar i { width:12px; height:12px; border-radius:50%; background:#c9d0dc; }
+  .bar span { margin-left:10px; font-size:16px; color:#5b6580; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .browser img { width:100%; flex:1; min-height:0; object-fit:cover; object-position:top; display:block; }
+  .side { flex:1; display:flex; flex-direction:column; gap:18px; min-width:0; }
+  .side h2 { font-size:36px; line-height:1.35; margin:0; font-weight:900; }
+  .meta { font-size:24px; color:var(--sub, #4a5470); }
+  .buzz { display:flex; flex-wrap:wrap; gap:12px; margin-top:6px; }
+  .buzz span { font-size:26px; font-weight:700; padding:6px 18px; border-radius:999px; background:var(--t, #eef1f6); color:var(--c); border:2px solid var(--c); }
+  .url { margin-top:18px; font-size:22px; color:var(--sub, #4a5470); word-break:break-all; }
+  .url b { color:var(--c); margin-right:10px; }
+  h2.ih { font-size:42px; line-height:1.3; margin:0 0 20px; font-weight:900; }
+  h2.ih mark { background:linear-gradient(transparent 60%, #ffd84d 60%); color:inherit; }
+  .fig { flex:1; min-height:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+  .fig img { max-width:100%; max-height:100%; flex:1; min-height:0; object-fit:contain; width:100%; border-radius:8px; }
+  .cap { font-size:26px; margin-top:12px; text-align:center; font-weight:500; }
+  .row ul { flex:0 0 40%; justify-content:center; }
+  .row li { font-size:30px; }
 </style>
 <div id="s"></div>
 <script src="episode.js"></script>
@@ -24,19 +45,32 @@
   // pict.js の PAL と同じ色(章の色名 → [hex, tint])
   const COLORS = { coral: ["#ee5a46", "#fde8e4"], magenta: ["#d64391", "#fbe6f1"], orange: ["#f08a1c", "#feefdc"], teal: ["#11a08f", "#dcf4f0"], blue: ["#2f6fe4", "#e3ecfd"], sky: ["#1b9ad6", "#def2fb"], navy: ["#3b4a8f", "#e5e8f4"], purple: ["#7457d6", "#ece7fb"], green: ["#35a055", "#e1f4e6"], yellow: ["#e8a400", "#fff3cc"] };
   const q = Object.fromEntries(new URLSearchParams(location.hash.slice(1)));
-  const ch = EP.chapters[(+q.ch || 1) - 1], slide = ch.topics[+q.topic || 0].slide || {};
+  const ch = EP.chapters[(+q.ch || 1) - 1], tp = ch.topics[+q.topic || 0], slide = (tp.slides ? tp.slides[+q.s || 0] : tp.slide) || {};
   const root = document.documentElement.style;
   const [hex, tint] = COLORS[ch.color] || COLORS.blue;
   root.setProperty("--c", hex); root.setProperty("--t", tint);
   root.setProperty("--font", `"${EP.slide_font || "sans-serif"}"`);
-  document.getElementById("s").innerHTML =
-    (slide.label ? `<div class="label">${slide.label}</div>` : "") +
-    (slide.heading ? `<h1>${slide.heading}</h1>` : "") +
-    `<ul>${(slide.points || []).map((p) => `<li>${p}</li>`).join("")}</ul>` +
-    (slide.note ? `<div class="note">${slide.note}</div>` : "");
+  const kind = slide.kind || "text";
+  const pts = (slide.points || []).length ? `<ul>${slide.points.map((p) => `<li>${p}</li>`).join("")}</ul>` : "";
+  const label = slide.label ? `<div class="label">${slide.label}</div>` : "";
+  let html;
+  if (kind === "shot") {
+    html = label + `<div class="row"><div class="browser"><div class="bar"><i></i><i></i><i></i><span>${slide.url || ""}</span></div><img src="../${slide.image}"></div>` +
+      `<div class="side">${slide.title ? `<h2>${slide.title}</h2>` : ""}${slide.meta ? `<div class="meta">${slide.meta}</div>` : ""}` +
+      `${(slide.buzz || []).length ? `<div class="buzz">${slide.buzz.map((x) => `<span>${x}</span>`).join("")}</div>` : ""}</div></div>` +
+      `<div class="url"><b>URL</b>${slide.url || ""}</div>`;
+  } else if (kind === "image") {
+    const fig = `<div class="fig"><img id="fig" src="../${slide.image}">${slide.caption ? `<div class="cap">${slide.caption}</div>` : ""}</div>`;
+    html = label + (slide.heading ? `<h2 class="ih">${slide.heading}</h2>` : "") + (pts ? `<div class="row">${fig}${pts}</div>` : fig) +
+      (slide.source || slide.note ? `<div class="note">${slide.source ? "出典: " + slide.source : slide.note}</div>` : "");
+  } else {
+    html = label + (slide.heading ? `<h1>${slide.heading}</h1>` : "") + `<ul>${(slide.points || []).map((p) => `<li>${p}</li>`).join("")}</ul>` +
+      (slide.note ? `<div class="note">${slide.note}</div>` : "");
+  }
+  document.getElementById("s").innerHTML = html;
   // 入りきらないときは文字を縮める
   const s = document.getElementById("s");
   for (let k = 1; k > 0.6 && s.scrollHeight > s.clientHeight + 1; k -= 0.04) s.querySelectorAll("h1,li,.label,.note").forEach((el) => (el.style.zoom = k));
-  document.fonts.ready.then(() => { window.READY = true; });
+  document.fonts.ready.then(() => Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))))).then(() => { window.READY = true; });
 </script>
 </html>

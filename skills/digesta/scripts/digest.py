@@ -22,6 +22,8 @@ usage: uv run digest.py <command> <会議のディレクトリ> [options]
   voices     声のサンプルを作る                                      声の名前 ...
   chars      digest/chars.yaml のキャラクター画像を Gemini で生成する     [--only 名前,名前] [--force]
   status     設定と、各成果物が最新かどうかを表示する
+  shot       記事のページの最初の画面を digest/media/<名前>.png に撮る(スライドの kind: shot 用)    名前 URL
+  figures    記事の本文の画像と og:image を digest/media/<名前>_NN.* に取り出し、一覧 <名前>_sheet.jpg を作る    名前 URL
 
 人が編集するのは digest/ 直下のテキスト(minutes.md / narration.md / cuts.yaml / episode.yaml / grareco.html / icons.js)と、
 設定・ルール・人名と用語の用語集を書く digesta.md(プロジェクト直下と会議フォルダ。会議のほうが優先)。
@@ -288,7 +290,8 @@ class Ep:
             ch.setdefault("who", ""); ch.setdefault("face", [])
             if ch.get("color") not in ("coral", "magenta", "orange", "teal", "blue", "purple", "green"):
                 die(f"episode.yaml: {i + 1}章の color は coral/magenta/orange/teal/blue/purple/green のどれか")
-            ch["topics"] = [{"title": t["title"], "icons": t.get("icons", []), **({"slide": t["slide"]} if t.get("slide") else {})} for t in cuts.get(i + 1, [])]
+            ch["topics"] = [{"title": t["title"], "icons": t.get("icons", []), **({"slide": t["slide"]} if t.get("slide") else {}),
+                             **({"slides": t["slides"]} if t.get("slides") else {})} for t in cuts.get(i + 1, [])]
         ep.setdefault("label", self.name); ep.setdefault("number", ""); ep.setdefault("badge", "ダイジェスト")
         ep.setdefault("series", ""); ep.setdefault("date", "")
         ep["credit"] = self.cfg["credit"]
@@ -381,13 +384,15 @@ def ep_slice(e, kind, ch=None):
         return [head, [[x.get(k) for k in ("n", "short", "who", "title", "color")] for x in chs], pick(("who", "title", "sub", "color", "face", "deco", "topics", "char"))]
     if kind == "opening":
         return [head, e.get("series"), e.get("date"), e.get("opening_bubble"), [[x.get(k) for k in ("n", "who", "title", "color", "face", "deco", "char")] for x in chs]]
+    # カードのフッターに番号とシリーズ名が出るので、どのカードもそれを含める
+    foot = [head, e.get("series")]
     if kind == "chapter":
-        return pick(("n", "who", "title", "sub", "sub_card", "color", "face", "deco", "char"))
+        return [foot, pick(("n", "who", "title", "sub", "sub_card", "color", "face", "deco", "char"))]
     if kind == "recap":
-        return pick(("n", "who", "color", "face", "deco", "recap", "recap_title", "char"))
+        return [foot, pick(("n", "who", "color", "face", "deco", "recap", "recap_title", "char"))]
     if kind == "ending":
-        return e.get("ending")
-    return [e.get("outro"), e.get("credit")]
+        return [foot, e.get("ending")]
+    return [foot, e.get("outro"), e.get("credit")]
 
 
 def cmd_init(ep, a):
@@ -595,6 +600,120 @@ def new_page(b, w=1920, h=1080, scale=1):
     pg = b.new_page(viewport={"width": w, "height": h}, device_scale_factor=scale)
     pg.on("pageerror", lambda e: print("pageerror:", e))
     return pg
+
+
+# ---------- 記事の画面と図(録画がない回のスライド素材) ----------
+def web_url(u):
+    if not re.match(r"https?://", u or ""):
+        die(f"URL は http(s):// で始まるものだけ: {u!r}")
+    return u
+
+
+def media_name(name):
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", name or ""):
+        die(f"名前は英数字と _ - だけ: {name!r}")
+    return name
+
+
+def cmd_shot(ep, a):
+    """記事のページを開き、最初の画面(1280x800、2 倍の解像度)を digest/media/<名前>.png に撮る。スライドの kind: shot に使う"""
+    if len(a.args) != 2:
+        die("usage: digest.py shot <会議> <名前> <URL>")
+    name, url = media_name(a.args[0]), web_url(a.args[1])
+    md = ep.digest / "media"; md.mkdir(parents=True, exist_ok=True)
+    p, b, pg = browser(1280, 800, 2)
+    try:
+        pg.goto(url, wait_until="load", timeout=60000)
+        pg.wait_for_timeout(2500)
+        # 大きなバナーで題名が画面の外にあることがある。記事の h1 が上の方に来るようにスクロールする
+        pg.evaluate("""() => { const t = (document.querySelector('meta[property="og:title"]') || {}).content || document.title;
+          const hs = [...document.querySelectorAll('h1, h2')].filter((x) => x.textContent.trim().length > 4);
+          const h = hs.find((x) => t.includes(x.textContent.trim().slice(0, 12))) || document.querySelector('article h1, main h1, h1');
+          if (h) window.scrollTo(0, Math.max(0, h.getBoundingClientRect().top + window.scrollY - 140)); }""")
+        pg.wait_for_timeout(800)
+        dst = md / f"{name}.png"
+        pg.screenshot(path=str(dst))
+        print(f"撮影: {dst.relative_to(ep.digest)}(題名: {pg.title()})")
+    finally:
+        b.close(); p.stop()
+
+
+def cmd_figures(ep, a):
+    """記事の本文の画像(幅 300px 以上)と og:image を digest/media/<名前>_NN.<拡張子> に取り出し、番号つきの一覧画像 <名前>_sheet.jpg を作る。
+    gif(動く画像)はそのまま、動く webp / png は gif にする。取れない画像(svg など)は、ページ上の見た目を撮る"""
+    import io
+
+    from PIL import Image, ImageDraw
+    if len(a.args) != 2:
+        die("usage: digest.py figures <会議> <名前> <URL>")
+    name, url = media_name(a.args[0]), web_url(a.args[1])
+    md = ep.digest / "media"; md.mkdir(parents=True, exist_ok=True)
+    p, b, pg = browser(1280, 900, 1)
+    got = []
+    try:
+        pg.goto(url, wait_until="load", timeout=60000)
+        pg.evaluate("async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)); } window.scrollTo(0, 0); }")
+        pg.wait_for_timeout(1500)
+        found = pg.evaluate("""() => {
+          const root = document.querySelector('article') || document.querySelector('main') || document.body;
+          const all = [...root.querySelectorAll('img')];
+          const og = document.querySelector('meta[property="og:image"]');
+          const list = all.map((im, i) => ({ i, src: im.currentSrc || im.src, alt: im.alt || '', w: im.naturalWidth, h: im.naturalHeight }))
+            .filter((x) => x.w >= 300 && x.h >= 150);
+          return { og: og ? og.content : '', list };
+        }""")
+        items = ([{"i": -1, "src": found["og"], "alt": "og:image", "w": 0, "h": 0}] if found["og"] else []) + found["list"]
+        seen = set()
+        for x in items:
+            src = x["src"]
+            if not src or src in seen or not re.match(r"https?://", src):
+                continue
+            seen.add(src)
+            n = "og" if x["i"] < 0 else f"{len([g for g in got if g[0] != 'og']) + 1:02d}"
+            data = None
+            try:
+                r = pg.request.get(src, headers={"Referer": url}, timeout=30000)
+                data = r.body() if r.ok else None
+            except Exception:
+                pass
+            dst = None
+            if data:
+                try:
+                    im = Image.open(io.BytesIO(data))
+                    if im.format == "GIF":
+                        dst = md / f"{name}_{n}.gif"; dst.write_bytes(data)
+                    elif getattr(im, "is_animated", False):
+                        dst = md / f"{name}_{n}.gif"; im.save(dst, save_all=True, loop=0)
+                    else:
+                        dst = md / f"{name}_{n}.png"; im.convert("RGBA" if im.mode in ("RGBA", "LA", "P") else "RGB").save(dst)
+                except Exception:
+                    dst = None
+            if dst is None and x["i"] >= 0:  # 取れない画像は、ページ上の見た目を撮る
+                try:
+                    root = pg.locator("article").first if pg.locator("article").count() else (pg.locator("main").first if pg.locator("main").count() else pg.locator("body"))
+                    dst = md / f"{name}_{n}.png"
+                    root.locator("img").nth(x["i"]).screenshot(path=str(dst))
+                except Exception:
+                    dst = None
+            if dst:
+                got.append((n, dst, x["alt"]))
+    finally:
+        b.close(); p.stop()
+    if not got:
+        print("画像なし"); return
+    tw, th, cols = 400, 260, 3
+    rows_ = math.ceil(len(got) / cols)
+    sheet = Image.new("RGB", (cols * tw, rows_ * (th + 30)), "white")
+    dr = ImageDraw.Draw(sheet)
+    for k, (n, f, alt) in enumerate(got):
+        im = Image.open(f); im.seek(0); im = im.convert("RGB"); im.thumbnail((tw - 10, th - 10))
+        x0, y0 = (k % cols) * tw, (k // cols) * (th + 30)
+        sheet.paste(im, (x0 + 5, y0 + 5)); dr.text((x0 + 8, y0 + th + 4), f"{n}  {Image.open(f).size[0]}x{Image.open(f).size[1]}", fill="black")
+    sheet.save(md / f"{name}_sheet.jpg", quality=85)
+    for n, f, alt in got:
+        im = Image.open(f)
+        print(f"{f.relative_to(ep.digest)}  {im.size[0]}x{im.size[1]}{'  (動く)' if getattr(im, 'is_animated', False) else ''}  alt: {alt[:60]}")
+    print(f"一覧: {(md / f'{name}_sheet.jpg').relative_to(ep.digest)}")
 
 
 # ---------- 画像 ----------
@@ -950,9 +1069,35 @@ def build_topic(ep, e, ch, t, topic, frame, seg, force):
     return off, True
 
 
-def slide_name(ch, t):
-    """録画がない話題のナレーション原稿の見出し名(narration.md の「## t1-1」)。章も話題も 1 から数える"""
-    return f"t{ch}-{t + 1}"
+def slide_name(ch, t, s=None):
+    """録画がない話題のナレーション原稿の見出し名(narration.md の「## t1-1」)。章も話題も 1 から数える。
+    slides(複数枚)の話題は、スライドごとに「## t1-1.1」「## t1-1.2」…"""
+    return f"t{ch}-{t + 1}" + (f".{s + 1}" if s is not None else "")
+
+
+SLIDE_KINDS = ("text", "shot", "image", "html")
+
+
+def topic_slides(topic):
+    """話題のスライド: [(番号 or None, スライド)]。slides(複数枚)なら番号つき、slide(1 枚)なら None"""
+    if topic.get("slides"):
+        return [(i, x if isinstance(x, dict) else {}) for i, x in enumerate(topic["slides"])]
+    if topic.get("slide"):
+        return [(None, topic["slide"])]
+    return []
+
+
+def slide_seg_name(ch, t, s):
+    return f"t{ch}{t}" + (f"_{s}" if s is not None else "")
+
+
+def slide_timing(ep, name, narr, first, last):
+    """スライド 1 枚の (声の前の間, 声の長さ, 全体の長さ)。話題の途中のスライドは間を短くする"""
+    wav = ep.work / "narr" / f"{name}.wav"
+    text = narr.get(name, "")
+    nd = dur_of(wav) if text and wav.exists() else max(len(text) / 6.2, 4.0)
+    lead, tail = (0.4 if first else 0.25), (0.8 if last else 0.45)
+    return lead, nd, lead + nd + tail
 
 
 def sub_lines(text):
@@ -971,18 +1116,79 @@ def sub_lines(text):
     return [wrap(x.strip()) for x in out if x.strip()]
 
 
-def build_slide_topic(ep, e, ch, t, topic, frame, slide_png, seg, narr, force):
-    """録画がない話題: スライドの画像を枠に入れ、ナレーションを声と字幕にする"""
-    name = slide_name(ch, t)
+def media_hash(ep, rel):
+    f = ep.digest / str(rel)
+    return hashlib.sha256(f.read_bytes()).hexdigest() if f.exists() else "missing"
+
+
+def render_slide(ep, b, e, ch, t, s, sl, d, libkey, fdir, force):
+    """スライドの映像の素を作る。('still', png) / ('seq', フレームのフォルダ) / ('gif', png, gif, (x, y, w, h)) と、内容のハッシュを返す。
+    text / shot / image は lib/slide.html の静止画。image の gif は、静止画の #fig の位置に gif を重ねて動かす。
+    html は digest/ 以下の HTML を開き、CSS アニメーション(document.getAnimations())を時刻指定で1フレームずつ撮る"""
+    kind = sl.get("kind", "text")
+    tag = f"{ch}_{t}" + (f"_{s}" if s is not None else "")
+    color = e["chapters"][ch - 1].get("color")
+    hs = "#" + f"ch={ch}&topic={t}" + (f"&s={s}" if s is not None else "")
+    if kind == "html":
+        src = ep.digest / sl["html"]
+        key = sha("html", libkey, sl, color, src.read_bytes(), round(d, 2), ep.fps,
+                  sorted((f.name, f.stat().st_size, f.stat().st_mtime) for f in src.parent.iterdir() if f.is_file() and f != src))
+        fd = fdir / f"html_{tag}"
+        if force or not fresh(fd / "done", key):
+            if fd.exists():
+                shutil.rmtree(fd)
+            fd.mkdir()
+            pg = new_page(b, 1344, 756)
+            pg.goto(src.as_uri() + hs + f"&nd={d:.2f}")
+            end = pg.evaluate("""async () => {
+              await document.fonts.ready;
+              await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
+              if (window.PREPARE) await window.PREPARE();
+              const anims = document.getAnimations();
+              anims.forEach((a) => a.pause());
+              window.__seek = (ms) => anims.forEach((a) => (a.currentTime = ms));
+              const t = anims.map((a) => a.effect.getComputedTiming().endTime);
+              return t.some((x) => !isFinite(x)) ? -1 : Math.max(0, ...t);
+            }""")
+            rec = d if end < 0 else min(d, end / 1000 + 0.2)
+            n = max(1, math.ceil(rec * ep.fps))
+            for i in range(n):
+                pg.evaluate(f"window.__seek({i * 1000 / ep.fps})")
+                pg.screenshot(path=str(fd / f"{i:05d}.jpg"), type="jpeg", quality=95)
+            pg.close()
+            mark(fd / "done", key)
+        return ("seq", fd), key
+    png = fdir / f"slide_{tag}.png"
+    img = sl.get("image")
+    key = sha("slide", libkey, sl, color, e.get("slide_font"), e.get("slide_paper"), media_hash(ep, img) if img else "")
+    gif = img and str(img).lower().endswith(".gif")
+    if force or not fresh(png, key) or (gif and not Path(str(png) + ".rect").exists()):
+        sp = new_page(b, 1344, 756)
+        sp.goto((ep.lib / "slide.html").as_uri() + hs)
+        sp.wait_for_function("window.READY === true")
+        if gif:  # gif は静止画の上に重ねる。#fig の画像の位置と大きさ(object-fit: contain の実寸)を控える
+            rect = sp.evaluate("""() => { const im = document.querySelector('#fig'); const r = im.getBoundingClientRect();
+              const k = Math.min(r.width / im.naturalWidth, r.height / im.naturalHeight); const w = im.naturalWidth * k, h = im.naturalHeight * k;
+              im.style.visibility = 'hidden'; return [r.x + (r.width - w) / 2, r.y + (r.height - h) / 2, w, h].map(Math.round); }""")
+            Path(str(png) + ".rect").write_text(json.dumps(rect), encoding="utf-8")
+        sp.screenshot(path=str(png)); sp.close(); mark(png, key)
+    if gif:
+        return ("gif", png, ep.digest / img, json.loads(Path(str(png) + ".rect").read_text(encoding="utf-8"))), key
+    return ("still", png), key
+
+
+def build_slide_seg(ep, ch, t, s, frame, vis, vkey, seg, narr, first, last, force):
+    """録画がない話題のスライド 1 枚: 映像の素を枠に入れ、ナレーションを声と字幕にする。
+    話題の最初のスライドは画面全体をフェードインし、最後のスライドは画面全体をフェードアウトする。間のスライドは枠を残し、中身だけを入れ替える"""
+    name = slide_name(ch, t, s)
     wav = ep.work / "narr" / f"{name}.wav"
     text = narr.get(name, "")
     has = bool(text) and wav.exists()
-    nd = dur_of(wav) if has else max(len(text) / 6.2, 4.0)
-    lead, tail = 0.4, 0.8
-    d = lead + nd + tail
-    key = sha("slide", Path(str(frame) + ".key").read_text(encoding="utf-8"), Path(str(slide_png) + ".key").read_text(encoding="utf-8"), text,
-              hashlib.sha256(wav.read_bytes()).hexdigest() if has else "", ep.ass_head, ep.paper, ep.fps)
-    out = seg / f"t{ch}{t}.mkv"
+    lead, nd, d = slide_timing(ep, name, narr, first, last)
+    key = sha("slide2", Path(str(frame) + ".key").read_text(encoding="utf-8"), vkey, text,
+              hashlib.sha256(wav.read_bytes()).hexdigest() if has else "", ep.ass_head, ep.paper, ep.fps, first, last, round(d, 3))
+    sn = slide_seg_name(ch, t, s)
+    out = seg / f"{sn}.mkv"
     if not force and fresh(out, key):
         return dur_of(out), False
     ass, lines = ep.ass_head, sub_lines(text)
@@ -992,14 +1198,32 @@ def build_slide_topic(ep, e, ch, t, topic, frame, slide_png, seg, narr, force):
         span = nd * len(x) / total_chars
         ass += f"Dialogue: 0,{ass_ts(at)},{ass_ts(min(at + span, d - 0.05))},Sub,,0,0,0,,{{\\pos(960,972)}}{x}\n"
         at += span
-    (seg / f"t{ch}{t}.ass").write_text(ass, encoding="utf-8")
+    (seg / f"{sn}.ass").write_text(ass, encoding="utf-8")
     audio = ["-i", wav] if has else ["-f", "lavfi", "-t", f"{d:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
     af = (f"[1:a]aresample=48000,loudnorm=I=-17:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB,adelay={int(lead * 1000)}:all=1,apad[a]"
           if has else "[1:a]anull[a]")
-    fc = (f"[0:v]scale=1344:756:flags=lanczos,format=gbrp,fps={ep.fps},pad=1920:1080:44:104:color={ep.paper}[pv];"
-          f"[pv][2:v]overlay=0:0:format=gbrp,format=rgb24,subtitles=seg/t{ch}{t}.ass:fontsdir={FONT_CACHE},format=rgb24,"
-          f"fade=t=in:st=0:d=0.3:color={ep.paper},fade=t=out:st={d - 0.3:.3f}:d=0.3:color={ep.paper},{TOYUV}[v];{af}")
-    run(["ffmpeg", "-v", "error", "-y", "-loop", "1", "-framerate", ep.fps, "-t", f"{d:.3f}", "-i", slide_png, *audio, "-i", frame,
+    extra, pre = [], ""
+    if vis[0] == "seq":
+        vin = ["-framerate", ep.fps, "-i", vis[1] / "%05d.jpg"]
+        layer = f"[0:v]scale=1344:756:in_color_matrix=bt601:in_range=pc:out_range=pc:flags=lanczos,format=gbrp,fps={ep.fps},tpad=stop_mode=clone:stop_duration={d:.3f},trim=duration={d:.3f}"
+    else:
+        vin = ["-loop", "1", "-framerate", ep.fps, "-t", f"{d:.3f}", "-i", vis[1]]
+        layer = f"[0:v]scale=1344:756:flags=lanczos,format=gbrp,fps={ep.fps}"
+        if vis[0] == "gif":
+            x, y, w, h = vis[3]
+            extra = ["-ignore_loop", "0", "-t", f"{d:.3f}", "-i", vis[2]]
+            pre = f"[3:v]fps={ep.fps},scale={w}:{h}:flags=lanczos,format=rgba[g];"
+            layer = f"{layer}[bg];[bg][g]overlay={x}:{y}:format=gbrp:eof_action=repeat"
+    fx = []
+    if not first:
+        fx.append(f"fade=t=in:st=0:d=0.2:color={ep.paper}")
+    if not last:
+        fx.append(f"fade=t=out:st={d - 0.2:.3f}:d=0.2:color={ep.paper}")
+    whole = ([f"fade=t=in:st=0:d=0.3:color={ep.paper}"] if first else []) + ([f"fade=t=out:st={d - 0.3:.3f}:d=0.3:color={ep.paper}"] if last else [])
+    fc = (pre + layer + "".join("," + f for f in fx) + f",pad=1920:1080:44:104:color={ep.paper}[pv];"
+          f"[pv][2:v]overlay=0:0:format=gbrp,format=rgb24,subtitles=seg/{sn}.ass:fontsdir={FONT_CACHE},format=rgb24,"
+          + "".join(f + "," for f in whole) + f"{TOYUV}[v];{af}")
+    run(["ffmpeg", "-v", "error", "-y", *vin, *audio, "-i", frame, *extra,
          "-filter_complex", fc, "-map", "[v]", "-map", "[a]", "-t", f"{d:.3f}", *enc(ep), out], cwd=ep.work)
     mark(out, key)
     return d, True
@@ -1054,10 +1278,39 @@ def check_texts(ep):
         for t in c.get("topics") or []:
             if len(str(t.get("title", ""))) > 14:
                 warns.append(f"cuts.yaml: {n}章「{t.get('title')}」の題名が長い(目安 12 字)")
-            if not t.get("clips") and not t.get("slide"):
-                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips も slide もない")
-            if t.get("clips") and t.get("slide"):
-                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips と slide の両方がある(どちらか一方)")
+            if not t.get("clips") and not t.get("slide") and not t.get("slides"):
+                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips も slide も slides もない")
+            if sum(bool(t.get(k)) for k in ("clips", "slide", "slides")) > 1:
+                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips / slide / slides が2つ以上ある(どれか1つ)")
+            if t.get("slides") is not None and not isinstance(t.get("slides"), list):
+                errs.append(f"cuts.yaml: {n}章「{t.get('title')}」の slides がリストになっていない")
+            for j, sl in enumerate(t.get("slides") or [] if isinstance(t.get("slides"), list) else []):
+                where = f"cuts.yaml: {n}章「{t.get('title')}」の slides の {j + 1} 枚目"
+                if not isinstance(sl, dict):
+                    errs.append(f"{where}が辞書になっていない"); continue
+                kind = sl.get("kind", "text")
+                if kind not in SLIDE_KINDS:
+                    errs.append(f"{where}: kind は {' / '.join(SLIDE_KINDS)} のどれか(いまは {kind!r})"); continue
+                if kind == "text" and not (sl.get("heading") or sl.get("points")):
+                    errs.append(f"{where}: text に heading も points もない")
+                if kind in ("shot", "image"):
+                    if not sl.get("image"):
+                        errs.append(f"{where}: {kind} に image(digest/ からの相対パス)がない")
+                    elif not (ep.digest / str(sl["image"])).exists():
+                        errs.append(f"{where}: 画像 digest/{sl['image']} がない")
+                if kind == "shot" and not sl.get("url"):
+                    errs.append(f"{where}: shot に url がない")
+                if kind == "image" and not (sl.get("source") or sl.get("credit")):
+                    warns.append(f"{where}: image に source(出典)がない。記事の画像なら出典を書く")
+                if kind == "html":
+                    if not sl.get("html"):
+                        errs.append(f"{where}: html に html(digest/ からの相対パス)がない")
+                    elif not (ep.digest / str(sl["html"])).exists():
+                        errs.append(f"{where}: digest/{sl['html']} がない")
+                bad = [k for k in ("label", "heading", "note", "caption", "source", "title", "meta", "url") if sl.get(k) is not None and not isinstance(sl[k], (str, int, float))]
+                bad += [f"points の {i + 1} 個目" for i, p_ in enumerate(sl.get("points") or []) if not isinstance(p_, (str, int, float))]
+                if bad:
+                    errs.append(f"{where}: {'、'.join(bad)} が文字列でない(「: 」を含むなら引用符で囲む)")
             if t.get("clips") and ep.media(VIDEO_EXT, required=False) is None:
                 errs.append(f"cuts.yaml: {n}章「{t.get('title')}」に clips があるが、録画がない(録画がないなら slide で書く)")
             sl = t.get("slide")
@@ -1097,7 +1350,8 @@ def check_texts(ep):
     cards, _ = ep.narration()
     want = ["opening"] + [x for i in range(1, len(chapters) + 1) for x in ([f"ch{i}"] + ([f"recap{i}"] if (chapters[i - 1].get("recap")) else []))]
     for c in (cuts if isinstance(cuts, list) else []):
-        want += [slide_name(int(c.get("chapter", 0)), i) for i, t in enumerate(c.get("topics") or []) if t.get("slide")]
+        want += [slide_name(int(c.get("chapter", 0)), i, s_) for i, t in enumerate(c.get("topics") or []) if isinstance(t, dict)
+                 for s_, _ in (topic_slides(t) if not t.get("clips") else [])]
     want += ["ending"] if e.get("ending") else []
     want += ["outro"] if e.get("outro") else []
     for w in want:
@@ -1138,8 +1392,14 @@ def cmd_plan(ep, a):
         n = ch["n"]
         d, how = card_len(f"ch{n}", 0.7); add(f"ch{n}", d, how)
         for t, topic in enumerate(cuts.get(n, [])):
-            if topic.get("slide"):
-                d, how = card_len(slide_name(n, t), 0.8); add(f"t{n}{t}", d - 0.5, how + " slide")
+            sls = topic_slides(topic)
+            if sls:
+                for k, (s_, sl) in enumerate(sls):
+                    first, last = k == 0, k == len(sls) - 1
+                    nm = slide_name(n, t, s_)
+                    _, _, d = slide_timing(ep, nm, cards, first, last)
+                    how = "" if (ep.work / "narr" / f"{nm}.wav").exists() and nm in cards else "*"
+                    add(slide_seg_name(n, t, s_), d, how + " " + sl.get("kind", "text"))
                 continue
             d = sum(float(c["end"]) - float(c["start"]) for c in topic.get("clips") or [])
             add(f"t{n}{t}", d)
@@ -1153,7 +1413,7 @@ def cmd_plan(ep, a):
     if e.get("outro"):
         d, how = card_len("outro", 3.0); add("outro", d, how)
     print("\n".join(rows))
-    talk = sum(float(r.split()[2].rstrip("s*")) for r in rows if r.split()[1].startswith("t") and r.split()[1][1:].isdigit())
+    talk = sum(float(r.split()[2].rstrip("s*")) for r in rows if re.fullmatch(r"t\d+(_\d+)?", r.split()[1]))
     print(f"見積もり: 全体 {ts(total)}(本編 {ts(talk)}、カード {ts(total - talk)})。* は音声未生成のため文字数からの推定(±15%)")
     if warns:
         print(f"注意 {len(warns)} 件(上に表示)。誤りはなし。video を実行できる")
@@ -1216,18 +1476,20 @@ def cmd_video(ep, a):
                 pg_.goto((ep.lib / "frame.html").as_uri() + f"#ch={ch}&topic={t}"); pg_.reload()
                 pg_.wait_for_function("window.READY === true")
                 pg_.screenshot(path=str(frame), omit_background=True); mark(frame, fkey)
-            if cuts[ch][t].get("slide"):
-                slide_png = fdir / f"slide_{ch}_{t}.png"
-                skey = sha("slide", libkey, cuts[ch][t]["slide"], e["chapters"][ch - 1].get("color"), e.get("slide_font"), e.get("slide_paper"))
-                if a.force or not fresh(slide_png, skey):
-                    page()
-                    sp = new_page(b, 1344, 756)
-                    sp.goto((ep.lib / "slide.html").as_uri() + f"#ch={ch}&topic={t}")
-                    sp.wait_for_function("window.READY === true")
-                    sp.screenshot(path=str(slide_png)); sp.close(); mark(slide_png, skey)
-                d, did = build_slide_topic(ep, e, ch, t, cuts[ch][t], frame, slide_png, seg, narr, a.force)
-            else:
-                d, did = build_topic(ep, e, ch, t, cuts[ch][t], frame, seg, a.force)
+            sls = topic_slides(cuts[ch][t])
+            if sls:
+                page()
+                for k, (s_, sl) in enumerate(sls):
+                    first, last = k == 0, k == len(sls) - 1
+                    _, _, d0 = slide_timing(ep, slide_name(ch, t, s_), narr, first, last)
+                    vis, vkey = render_slide(ep, b, e, ch, t, s_, sl, d0, libkey, fdir, a.force)
+                    d, did = build_slide_seg(ep, ch, t, s_, frame, vis, vkey, seg, narr, first, last, a.force)
+                    sn = slide_seg_name(ch, t, s_)
+                    if did:
+                        made.append(sn); print(f"本編 {ch}-{t + 1}" + (f".{s_ + 1}" if s_ is not None else "") + f"「{cuts[ch][t]['title']}」 {sl.get('kind', 'text')} {d:.1f}s")
+                    order.append(sn)
+                continue
+            d, did = build_topic(ep, e, ch, t, cuts[ch][t], frame, seg, a.force)
             if did:
                 made.append(f"t{ch}{t}"); print(f"本編 {ch}-{t + 1}「{cuts[ch][t]['title']}」 {d:.1f}s")
             order.append(f"t{ch}{t}")
@@ -1380,7 +1642,7 @@ def main():
     for f in (sys.stdout, sys.stderr):  # Windows のパイプ出力は既定が cp932 で、日本語の一部の文字で落ちる。UTF-8 にそろえる
         f.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["init", "minutes", "sheet", "grid", "crop", "frames", "plan", "image", "narration", "bgm", "video", "voices", "chars", "status"])
+    ap.add_argument("cmd", choices=["init", "minutes", "sheet", "grid", "crop", "frames", "plan", "image", "narration", "bgm", "video", "voices", "chars", "status", "shot", "figures"])
     ap.add_argument("dir")
     ap.add_argument("args", nargs="*")
     ap.add_argument("--force", action="store_true", help="キャッシュを無視して作り直す")
@@ -1394,7 +1656,7 @@ def main():
     ep = Ep(a.dir)
     ENV_DIRS[:] = [ep.root, ep.root.parent, Path.cwd()]
     {"init": cmd_init, "minutes": cmd_minutes, "sheet": cmd_sheet, "grid": cmd_grid, "crop": cmd_crop, "frames": cmd_frames, "plan": cmd_plan, "image": cmd_image, "narration": cmd_narration, "bgm": cmd_bgm,
-     "video": cmd_video, "voices": cmd_voices, "chars": cmd_chars, "status": cmd_status}[a.cmd](ep, a)
+     "video": cmd_video, "voices": cmd_voices, "chars": cmd_chars, "status": cmd_status, "shot": cmd_shot, "figures": cmd_figures}[a.cmd](ep, a)
 
 
 if __name__ == "__main__":
