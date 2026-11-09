@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml>=6", "playwright>=1.45", "pillow>=10"]
+# dependencies = ["pyyaml>=6", "playwright>=1.48", "pillow>=10"]
 # ///
 """会議の録画と文字起こしから、議事録・グラレコ画像・ダイジェスト動画を作るビルドツール。
 
@@ -29,7 +29,7 @@ usage: uv run digest.py <command> <会議のディレクトリ> [options]
 設定・ルール・人名と用語の用語集を書く digesta.md(プロジェクト直下と会議フォルダ。会議のほうが優先)。
 digest/lib と digest/work は自動生成なので編集しない。
 """
-import argparse, base64, hashlib, json, math, os, re, shutil, subprocess, sys, urllib.error, urllib.parse, urllib.request
+import argparse, base64, hashlib, ipaddress, json, math, os, re, shutil, socket, subprocess, sys, urllib.error, urllib.parse, urllib.request
 from pathlib import Path
 
 import yaml
@@ -581,7 +581,7 @@ def cmd_frames(ep, a):
 
 
 # ---------- ブラウザ ----------
-def browser(w=1920, h=1080, scale=1):
+def browser(w=1920, h=1080, scale=1, **kw):
     from playwright.sync_api import sync_playwright
     p = sync_playwright().start()
     try:
@@ -593,11 +593,11 @@ def browser(w=1920, h=1080, scale=1):
         if not cands:
             die("Chromium がない。次を実行する: uv run --with playwright playwright install chromium-headless-shell")
         b = p.chromium.launch(executable_path=str(cands[-1]))
-    return p, b, new_page(b, w, h, scale)
+    return p, b, new_page(b, w, h, scale, **kw)
 
 
-def new_page(b, w=1920, h=1080, scale=1):
-    pg = b.new_page(viewport={"width": w, "height": h}, device_scale_factor=scale)
+def new_page(b, w=1920, h=1080, scale=1, **kw):
+    pg = b.new_page(viewport={"width": w, "height": h}, device_scale_factor=scale, **kw)
     pg.on("pageerror", lambda e: print("pageerror:", e))
     return pg
 
@@ -607,6 +607,62 @@ def web_url(u):
     if not re.match(r"https?://", u or ""):
         die(f"URL は http(s):// で始まるものだけ: {u!r}")
     return u
+
+
+_HOST_OK = {}
+
+
+def public_host(host):
+    """host が公開アドレスだけに名前解決されるか。プライベート・ループバック・リンクローカルなどを 1 つでも含むか、名前解決できなければ False"""
+    if host not in _HOST_OK:
+        try:
+            ips = {ipaddress.ip_address(x[4][0].split("%")[0]) for x in socket.getaddrinfo(host, None)}
+        except (OSError, UnicodeError, ValueError):
+            ips = set()
+        ips = {getattr(ip, "ipv4_mapped", None) or ip for ip in ips}
+        _HOST_OK[host] = bool(ips) and all(ip.is_global and not ip.is_multicast for ip in ips)
+    return _HOST_OK[host]
+
+
+def guard_web(pg, url):
+    """記事のページから、内部向けのアドレス(プライベート・ループバック・リンクローカルなど)へのリクエストを止める。利用者が指定した記事のホストだけは許す。
+    Playwright の route はリダイレクト先では呼ばれないので、リダイレクトは route の中で 1 段ずつ追い、行き先ごとに確かめる。WebSocket は止める。
+    記事の URL のリダイレクトは先に解決し、最後の URL を返す(開く URL と実際の URL をそろえ、記事の相対パスがずれないようにする)"""
+    allow = urllib.parse.urlsplit(url).hostname
+
+    def ok(u):
+        s = urllib.parse.urlsplit(u)
+        return s.scheme in ("http", "https") and bool(s.hostname) and (s.hostname == allow or public_host(s.hostname))
+
+    def follow(fetch, u):
+        for _ in range(10):
+            if not ok(u):
+                print(f"止めた(内部向けのアドレス): {u}")
+                return None, u
+            r = fetch(u)
+            loc = r.headers.get("location")
+            if not (300 <= r.status < 400 and loc):
+                return r, u
+            u = urllib.parse.urljoin(u, loc)
+        return None, u
+
+    def handle(route):
+        u = route.request.url
+        if not u.startswith(("http://", "https://")):
+            return route.continue_()  # data: / blob: はネットワークに出ない
+        try:
+            r, _ = follow(lambda x: route.fetch(url=x, max_redirects=0), u)
+        except Exception:
+            return route.abort()
+        return route.fulfill(response=r) if r else route.abort("blockedbyclient")
+
+    r, final = follow(lambda x: pg.request.get(x, max_redirects=0, timeout=60000), url)
+    if r is None:
+        die(f"記事の URL が内部向けのアドレスへリダイレクトされる: {final}")
+    pg.route("**/*", handle)
+    # WebSocket は connect_to_server() を呼ばなければサーバーにつながらない(close() は sync で戻らないことがあるので呼ばない)
+    pg.route_web_socket("**/*", lambda ws: None)
+    return final
 
 
 def media_name(name):
@@ -621,9 +677,9 @@ def cmd_shot(ep, a):
         die("usage: digest.py shot <会議> <名前> <URL>")
     name, url = media_name(a.args[0]), web_url(a.args[1])
     md = ep.digest / "media"; md.mkdir(parents=True, exist_ok=True)
-    p, b, pg = browser(1280, 800, 2)
+    p, b, pg = browser(1280, 800, 2, service_workers="block")  # Service Worker からのリクエストは route を通らない
     try:
-        pg.goto(url, wait_until="load", timeout=60000)
+        pg.goto(guard_web(pg, url), wait_until="load", timeout=60000)
         pg.wait_for_timeout(2500)
         # 大きなバナーで題名が画面の外にあることがある。記事の h1 が上の方に来るようにスクロールする
         pg.evaluate("""() => { const t = (document.querySelector('meta[property="og:title"]') || {}).content || document.title;
@@ -648,7 +704,7 @@ def cmd_figures(ep, a):
         die("usage: digest.py figures <会議> <名前> <URL>")
     name, url = media_name(a.args[0]), web_url(a.args[1])
     md = ep.digest / "media"; md.mkdir(parents=True, exist_ok=True)
-    p, b, pg = browser(1280, 900, 1)
+    p, b, pg = browser(1280, 900, 1, service_workers="block")  # Service Worker からのリクエストは route を通らない
     got = []
     # 画像は取り直さず、ブラウザが読み込んだレスポンスの中身を使う(ページが指す任意の URL へ、こちらから別にリクエストを出さない)。
     # リダイレクトされた画像は、元の URL でも引けるようにする
@@ -662,7 +718,7 @@ def cmd_figures(ep, a):
 
     pg.on("response", on_response)
     try:
-        pg.goto(url, wait_until="load", timeout=60000)
+        pg.goto(guard_web(pg, url), wait_until="load", timeout=60000)
         pg.evaluate("async () => { for (let y = 0; y < document.body.scrollHeight; y += 600) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)); } window.scrollTo(0, 0); }")
         pg.wait_for_timeout(1500)
         found = pg.evaluate("""async () => {
