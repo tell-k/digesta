@@ -178,6 +178,13 @@
 
   document.fonts.ready.then(() => document.fonts.load('16px "Zen Maru Gothic"', "あ")).then(async () => {
     mountIcons();
+    // サムネイルのタイトルが白いカード(x=80〜1840)の右の余白に掛からないよう、実測して縮める。下端の位置は変えない
+    const th = id === "thumb" && el.querySelector("h1");
+    if (th && th.scrollWidth > 1530) {
+      const fs = Math.floor(150 * 1530 / th.scrollWidth);
+      th.style.fontSize = fs + "px";
+      th.style.top = 310 + Math.round((150 - fs) * 1.05) + "px";
+    }
     await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
     const anims = document.getAnimations();
     anims.forEach((a) => a.pause());
