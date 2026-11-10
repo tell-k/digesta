@@ -1,7 +1,7 @@
 {
   "name": "digesta",
   "description": "Turns a meeting or study-session recording and its transcript into minutes, a graphic recording, and a digest video (built for Japanese meetings).",
-  "version": "0.5.3",
+  "version": "0.5.4",
   "author": {
     "name": "tell-k"
   },
