@@ -624,21 +624,54 @@ def public_host(host):
     return _HOST_OK[host]
 
 
+def canon_url(u):
+    """URL を、判定する Python と接続する Playwright(WHATWG の URL)とで読み方がずれない形に組み立て直す。ずれうる URL は None。
+    \\ ・制御文字・空白・非 ASCII を含むもの、ホスト部分に @(ユーザー情報)や % があるもの、
+    WHATWG が IPv4 として読むが Python では読めない数字のホスト(0x7f.1 / 2130706433 / 0127.0.0.1 など)は止める"""
+    if not u or any(c == "\\" or ord(c) <= 0x20 or ord(c) >= 0x7F for c in u):
+        return None
+    s = urllib.parse.urlsplit(u)
+    if s.scheme not in ("http", "https") or "@" in s.netloc or "%" in s.netloc:
+        return None
+    try:
+        host, port = s.hostname, s.port
+    except ValueError:
+        return None
+    if not host:
+        return None
+    if ":" in host:
+        try:
+            host = f"[{ipaddress.IPv6Address(host).compressed}]"
+        except ValueError:
+            return None
+    else:
+        labels = host.split(".")
+        if labels[-1] == "" and len(labels) > 1:
+            labels = labels[:-1]
+        if re.fullmatch(r"0x[0-9a-f]*|[0-9]+", labels[-1]):  # WHATWG は最後のラベルが数字なら IPv4 として読む
+            try:
+                host = str(ipaddress.IPv4Address(".".join(labels)))
+            except ValueError:
+                return None
+    return urllib.parse.urlunsplit((s.scheme, host + (f":{port}" if port is not None else ""), s.path, s.query, ""))
+
+
 def guard_web(pg, url):
     """記事のページから、内部向けのアドレス(プライベート・ループバック・リンクローカルなど)へのリクエストを止める。利用者が指定した記事のホストだけは許す。
     Playwright の route はリダイレクト先では呼ばれないので、リダイレクトは route の中で 1 段ずつ追い、行き先ごとに確かめる。WebSocket は止める。
+    URL は canon_url で組み立て直し、確かめた URL そのものを取りに行く(Python と Playwright で URL の読み方がずれてすり抜けないように)。
+    route はページではなくコンテキストにかける(ページの JS が開いたポップアップも同じコンテキストに入る)。
     記事の URL のリダイレクトは先に解決し、最後の URL を返す(開く URL と実際の URL をそろえ、記事の相対パスがずれないようにする)"""
-    allow = urllib.parse.urlsplit(url).hostname
-
-    def ok(u):
-        s = urllib.parse.urlsplit(u)
-        return s.scheme in ("http", "https") and bool(s.hostname) and (s.hostname == allow or public_host(s.hostname))
+    allow = urllib.parse.urlsplit(canon_url(url) or "").hostname
 
     def follow(fetch, u):
         for _ in range(10):
-            if not ok(u):
-                print(f"止めた(内部向けのアドレス): {u}")
+            c = canon_url(u)
+            host = c and urllib.parse.urlsplit(c).hostname
+            if not host or not (host == allow or public_host(host)):
+                print(f"止めた(内部向けのアドレス、または読み方がずれうる URL): {u}")
                 return None, u
+            u = c
             r = fetch(u)
             loc = r.headers.get("location")
             if not (300 <= r.status < 400 and loc):
@@ -659,9 +692,9 @@ def guard_web(pg, url):
     r, final = follow(lambda x: pg.request.get(x, max_redirects=0, timeout=60000), url)
     if r is None:
         die(f"記事の URL が内部向けのアドレスへリダイレクトされる: {final}")
-    pg.route("**/*", handle)
+    pg.context.route("**/*", handle)
     # WebSocket は connect_to_server() を呼ばなければサーバーにつながらない(close() は sync で戻らないことがあるので呼ばない)
-    pg.route_web_socket("**/*", lambda ws: None)
+    pg.context.route_web_socket("**/*", lambda ws: None)
     return final
 
 
