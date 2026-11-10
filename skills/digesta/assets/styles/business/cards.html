@@ -165,6 +165,13 @@
 
   document.fonts.ready.then(() => document.fonts.load('16px "BIZ UDPGothic"', "あ")).then(async () => {
     mountIcons();
+    // サムネイルのタイトルが右の帯(x=1360〜)に掛からないよう、実測して縮める。下端の位置は変えない
+    const th = id === "thumb" && el.querySelector("h1");
+    if (th && th.scrollWidth > 1180) {
+      const fs = Math.floor(140 * 1180 / th.scrollWidth);
+      th.style.fontSize = fs + "px";
+      th.style.top = 330 + Math.round((140 - fs) * 1.1) + "px";
+    }
     await Promise.all([...document.images].map((im) => im.complete ? 0 : new Promise((r) => (im.onload = im.onerror = r))));
     const anims = document.getAnimations();
     anims.forEach((a) => a.pause());
