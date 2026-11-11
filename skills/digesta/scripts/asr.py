@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11,<3.13"
-# dependencies = ["faster-whisper>=1.1", "pyyaml>=6", "numpy"]
+# dependencies = ["faster-whisper>=1.1", "pyyaml>=6", "numpy", "pykakasi>=2.3"]
 # ///
 """文字起こし(ローカルの faster-whisper)。カット点の特定と、作った音声の検証に使う。
 
@@ -20,6 +20,8 @@ usage: uv run asr.py <command> <会議のディレクトリ> [引数]
   words <dir> <区間の開始秒> <a> <b>   a〜b 秒の単語ごとの時刻を表示する(長い発話を字幕に分けるとき)
   check-narration <dir>               ナレーション音声を文字起こしして原稿と並べる(読み間違いの確認)
                                       external_api: allow なら Gemini で聞き取る(ローカルの CPU を使わない)。--local でローカル
+  visemes <dir>                       ナレーション音声(digest/work/narr/*.wav)の拍ごとの母音と時刻を digest/work/narr/<名前>.vis.json に書く
+                                      ワイプのキャラクターの口の形に使う(digest.py video が必要なときに自動で呼ぶ)。音声が同じなら作り直さない
   check-video <dir>                   クリップの切れ目で音が途切れていないかを、元の録画の音量で調べる(文字起こしはしない。数秒で終わる)
                                       疑わしい切れ目と、近くの無音の時刻を表示する。動画を作る前でも使える
   check-video <dir> --asr             完成動画のクリップの境目(前後 4 秒)を文字起こしし、字幕の先頭と末尾の語が聞き取れているかを調べる
@@ -321,6 +323,41 @@ def cut_edges(work, starts, cuts):
         print("疑いの多くは耳では問題ない(切れ目にフェードが掛かるので、音の途中で切ってもなじむ)。耳で確かめ、気になる箇所だけ近くの無音(前 / 後)に start / end を移す。語を足すなら外側、前の人の言いかけを落とすなら内側")
 
 
+_KKS = None
+# 母音ごとのかな(段)。ん・っ・ーは別に扱う
+_DAN = {v: set(k) for v, k in {
+    "a": "あかさたなはまやらわがざだばぱぁゃゎ", "i": "いきしちにひみりぎじぢびぴぃ", "u": "うくすつぬふむゆるぐずづぶぷぅゅゔ",
+    "e": "えけせてねへめれげぜでべぺぇ", "o": "おこそとのほもよろをごぞどぼぽぉょ"}.items()}
+_LIPS = set("まみむめもばびぶべぼぱぴぷぺぽ")  # 唇を閉じてから開く音
+# 英字は文字の読み(B → ビー)、数字は数字の読み(4 → よん)のひらがなにしてから拍に分ける
+_LETTER = dict(zip("abcdefghijklmnopqrstuvwxyz", ["えー", "びー", "しー", "でぃー", "いー", "えふ", "じー", "えいち", "あい", "じぇー", "けー", "える", "えむ", "えぬ", "おー", "ぴー", "きゅー", "あーる", "えす", "てぃー", "ゆー", "ぶい", "だぶりゅー", "えっくす", "わい", "ぜっと"]))
+_DIGIT = dict(zip("0123456789", ["ぜろ", "いち", "に", "さん", "よん", "ご", "ろく", "なな", "はち", "きゅう"]))
+
+
+def kana_morae(text, prev="a"):
+    """語を拍に分け、[(母音 a/i/u/e/o/N, 唇を閉じる音か)] で返す。N は「ん」と「っ」(口をほぼ閉じる)。
+    漢字は pykakasi でひらがなにする。語の頭の「ー」は、前の語の最後の母音(prev)を伸ばす"""
+    global _KKS
+    if _KKS is None:
+        import pykakasi
+        _KKS = pykakasi.kakasi()
+    text = "".join(_LETTER.get(c.lower(), _DIGIT.get(c, c)) for c in text)
+    hira = "".join(x["hira"] for x in _KKS.convert(text))
+    out = []
+    for i, ch in enumerate(hira):
+        if ch in "ゃゅょぁぃぅぇぉゎ" and out:  # 拗音は前の拍の母音を置き換える
+            out[-1] = (next(v for v, k in _DAN.items() if ch in k), out[-1][1])
+        elif ch in "ー〜":
+            out.append((out[-1][0] if out else prev, False))
+        elif ch in "んっ":
+            out.append(("N", False))
+        else:
+            v = next((v for v, k in _DAN.items() if ch in k), None)
+            if v:
+                out.append((v, ch in _LIPS))
+    return out
+
+
 def main():
     for f in (sys.stdout, sys.stderr):  # Windows のパイプ出力は既定が cp932 で、日本語の一部の文字で落ちる。UTF-8 にそろえる
         f.reconfigure(encoding="utf-8", errors="replace")
@@ -387,6 +424,26 @@ def main():
                 show(work, [str(a)])
             else:
                 print(f"{a}-{b}: {len(out)} 文 → {work / 'win' / f'{a}-{b}.txt'}(find <語> で探す、show {a} <a-b> で範囲を読む)")
+    elif cmd == "visemes":
+        made = []
+        for wav in sorted((work / "narr").glob("*.wav")):
+            dst = wav.with_suffix(".vis.json")
+            key = __import__("hashlib").sha256(wav.read_bytes()).hexdigest()[:20] + ":2"
+            if dst.exists() and json.loads(dst.read_text(encoding="utf-8")).get("key") == key:
+                continue
+            segs = transcribe(audio(wav), language="ja", word_timestamps=True, condition_on_previous_text=False)
+            morae = []
+            for sg in segs:
+                for w in sg.words:
+                    ms = kana_morae(w.word, morae[-1][2] if morae else "a")
+                    if not ms:
+                        continue
+                    step = (w.end - w.start) / len(ms)
+                    for i, (v, closed) in enumerate(ms):
+                        morae.append([round(w.start + i * step, 3), round(w.start + (i + 1) * step, 3), v, closed])
+            dst.write_text(json.dumps({"key": key, "morae": morae}, ensure_ascii=False), encoding="utf-8")
+            made.append(wav.stem)
+        print(f"口の形(拍ごとの母音): 今回作成 {', '.join(made) or 'なし'}")
     elif cmd == "show":
         show(work, [x for x in args if x != "--print"])
     elif cmd == "find":

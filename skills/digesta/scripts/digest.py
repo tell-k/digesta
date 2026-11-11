@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script
 # /// script
 # requires-python = ">=3.11"
-# dependencies = ["pyyaml>=6", "playwright>=1.48", "pillow>=10"]
+# dependencies = ["pyyaml>=6", "playwright>=1.48", "pillow>=10", "numpy>=1.26"]
 # ///
 """会議の録画と文字起こしから、議事録・グラレコ画像・ダイジェスト動画を作るビルドツール。
 
@@ -21,6 +21,7 @@ usage: uv run digest.py <command> <会議のディレクトリ> [options]
   video      動画を作る(変わった部分だけ作り直す)                      [--force] [--no-bgm]
   voices     声のサンプルを作る                                      声の名前 ...
   chars      digest/chars.yaml のキャラクター画像を Gemini で生成する     [--only 名前,名前] [--force]
+  wipe       設定 wipe のキャラクター(右下のワイプでナレーションを喋る)の画像を Gemini で作り、口と目の差分を組み立てる  [--force]
   status     設定と、各成果物が最新かどうかを表示する
   shot       記事のページの最初の画面を digest/media/<名前>.png に撮る(スライドの kind: shot 用)    名前 URL
   figures    記事の本文の画像と og:image を digest/media/<名前>_NN.* に取り出し、一覧 <名前>_sheet.jpg を作る    名前 URL
@@ -64,6 +65,18 @@ DEFAULTS = {
     "asr_prompt": "",  # 文字起こしに渡す固有名詞のヒント(asr.py が使う)
     "output_dir": "output",
     "file_names": "en",  # 成果物のファイル名: en(_digest.mp4 など)/ ja(_ダイジェスト.mp4 など)
+    # ワイプ: 画面の右下に丸い窓を出し、キャラクターがナレーションに合わせて口を動かす(切り抜きの間は聞き役でうなずく)。
+    # 値はキャラクターのフォルダ(プロジェクトのフォルダからの相対)。中に wipe.yaml(prompt: 見た目の英文)を置き、digest.py wipe で画像を作る。空ならワイプなし
+    "wipe": "",
+    "wipe_size": 250,  # ワイプの直径(px、1920x1080 の画面で)
+    "wipe_pos": "1780,945",  # 本編(切り抜き・スライド)でのワイプの中心。既定は字幕の枠の右端
+    # カード(オープニング・章・まとめ・締め)でのワイプの中心。"x,y" か、カード名ごとの辞書({default: "x,y", opening: "x,y"})
+    "wipe_pos_card": "1780,945",
+    "wipe_sub_x": 850,  # ワイプがあるときの、録画がない話題(スライド)の字幕の中心の x(ワイプなしなら 960)
+    "wipe_name": "",  # ワイプのキャラクターの名前。narration.md に ## intro(自己紹介)があるとき、オープニングの間だけ名札に出す
+    "card_subs": True,  # カード(オープニング・章・まとめ・締め)のナレーションを字幕にする。カードを少し縮めて下に字幕の帯を作る
+    "wipe_bg": "#dcebf7",  # ワイプの窓の背景色
+    "wipe_ring": "#ffffff",  # ワイプの縁の色
 }
 # 合成は RGB で行い、最後に一度だけ bt709 リミテッドレンジへ変換する(カードと本編で色を揃えるため)
 RGB_IN = "in_color_matrix=bt709:in_range=tv:out_range=pc,format=gbrp"
@@ -220,6 +233,12 @@ class Ep:
         if not self.cfg["bgm_prompt"]:
             self.cfg["bgm_prompt"] = self.style.get("bgm_prompt", "")
         self.ass_head = ASS_HEAD.format(font=self.style.get("subtitle_font", "sans-serif"))
+        # 録画がない話題(スライド)の字幕の中心の x。ワイプはナレーションの間だけ出て字幕の枠の右端に重なるので、左へ寄せる(2 行・28 字でも届かない位置)。
+        # 発表者の切り抜きの間はワイプを出さないので、切り抜きの字幕は中央のまま
+        self.sub_x = int(self.cfg["wipe_sub_x"]) if self.cfg["wipe"] else 960
+        # カードのナレーションの字幕(下の帯に出す)
+        self.card_ass_head = self.ass_head.replace("\n\n[Events]", "\nStyle: Narr,{font},46,&H0022262B,&H0022262B,&H00FFFFFF,&H00000000,0,0,0,0,100,100,1,0,1,0,0,5,60,60,0,1\n\n[Events]".replace("{font}", self.style.get("subtitle_font", "sans-serif")))
+        self.has_intro = False
 
     def need_digest(self):
         if not self.digest.is_dir():
@@ -324,6 +343,11 @@ class Ep:
                     yomi[k] = v
             else:
                 cards[name] = " ".join(body.split())
+        # 自己紹介(## intro)は、オープニングのナレーションの頭で読む。書いた回だけ入る
+        if "intro" in cards:
+            intro = cards.pop("intro")
+            cards = {"opening": (intro + " " + cards.get("opening", "")).strip(), **{k: v for k, v in cards.items() if k != "opening"}}
+            self.has_intro = True
         return cards, yomi
 
 
@@ -1029,8 +1053,10 @@ def cmd_voices(ep, a):
 
 
 # ---------- キャラクター画像 ----------
-def gemini_image(ep, prompt, dst):
-    body = {"model": ep.cfg["image_model"], "input": [{"type": "text", "text": prompt}],
+def gemini_image(ep, prompt, dst, src=None):
+    """prompt から画像を作る。src(JPEG)を渡すと、その画像を編集する"""
+    inp = ([{"type": "image", "data": base64.b64encode(Path(src).read_bytes()).decode(), "mime_type": "image/jpeg"}] if src else []) + [{"type": "text", "text": prompt}]
+    body = {"model": ep.cfg["image_model"], "input": inp,
             "response_format": {"type": "image", "mime_type": "image/jpeg", "aspect_ratio": "1:1", "image_size": "1K"}}
     req = urllib.request.Request("https://generativelanguage.googleapis.com/v1beta/interactions", data=json.dumps(body).encode(),
                                  headers={"x-goog-api-key": gemini_key(), "Content-Type": "application/json"})
@@ -1083,6 +1109,333 @@ def cmd_chars(ep, a):
 def char_key(ep, name):
     f = ep.digest / "chars" / f"{name}.jpg"
     return hashlib.sha256(f.read_bytes()).hexdigest()[:16] if name and f.exists() else None
+
+
+# ---------- ワイプ(ナレーションを喋るキャラクター) ----------
+# ベース 1 枚と、口・目だけを変えた差分を Gemini の画像編集で作る。差分はベースと違う部分(口・目)だけを切り取って
+# ベースに貼るので、生成のゆらぎで顔や髪が動くことはない。口の形は 5 つ(閉・小・中・大・丸)、目は 3 つ(開・半目・閉)
+WIPE_EDIT = ("Edit this image. Keep EVERYTHING else pixel-identical: same character, same pose, same position, same size, same hair, "
+             "same clothes, same colors, same line style, same white background, same framing. Change ONLY ")
+WIPE_VARIANTS = {
+    "m1": "the mouth: the mouth is slightly open as if speaking softly, a small dark opening with a hint of upper teeth. Eyes unchanged.",
+    "m2": "the mouth: the mouth is half open as if saying 'e' while talking, showing a little of the upper teeth and the tongue. Eyes unchanged.",
+    "m3": "the mouth: the mouth is wide open as if saying 'a' while talking cheerfully, oval open mouth showing upper teeth and tongue. Eyes unchanged.",
+    "m4": "the mouth: the mouth is small and rounded open as if saying 'o'. Eyes unchanged.",
+    "m5": "the mouth: a small, natural mouth slightly stretched sideways as if softly saying 'i', lips barely parted with only a thin line of upper teeth, same size as the original smile. Not a grin. Eyes unchanged.",
+    "m6": "the mouth: the lips are pushed slightly forward into a small narrow opening as if saying 'u'. Eyes unchanged.",
+    "half": "the eyes: both eyes are half closed (the middle of a blink), upper eyelids lowered halfway. Mouth unchanged.",
+    "blink": "the eyes: both eyes are closed (a gentle blink), drawn as soft downward curved lines. Mouth unchanged.",
+}
+WIPE_BASE = ("Plain solid pure white background, no text, no frame, no border, no shadow on the background. Bust shot (head and shoulders), "
+             "facing the viewer directly, head upright and centered, mouth gently closed with a calm smile, eyes open.")
+MOUTHS, EYES = ("m0", "m1", "m2", "m3", "m4", "m5", "m6"), ("open", "half", "blink")
+# 母音と口の開き(音量の段 1〜3)→ 口の形。m0 閉、m1 小、m2 中(え)、m3 大(あ)、m4 丸(お)、m5 横に広い(い)、m6 すぼめる(う)
+VOWEL_MOUTH = {"a": ("m1", "m3", "m3"), "i": ("m5", "m5", "m5"), "u": ("m6", "m6", "m6"), "e": ("m1", "m2", "m2"), "o": ("m4", "m4", "m4"), "N": ("m0", "m1", "m1")}
+
+
+def wipe_dir(ep):
+    return (ep.root.parent / str(ep.cfg["wipe"])).resolve() if ep.cfg["wipe"] else None
+
+
+def wipe_key(ep):
+    d = wipe_dir(ep)
+    f = d / "sprites" / "sprites.key" if d else None
+    return f.read_text(encoding="utf-8") if f and f.exists() else None
+
+
+def cmd_wipe(ep, a):
+    d = wipe_dir(ep)
+    if not d:
+        die("設定 wipe が空。digesta.md の設定に wipe: キャラクターのフォルダ(プロジェクトからの相対。例 wipe/anchor)を書く")
+    spec = d / "wipe.yaml"
+    if not spec.exists():
+        die(f"{spec} がない。prompt: に見た目の英文を書く(画風・性別・年代・髪型・服装。人名や会議の内容は書かない)")
+    prompt = (yaml.safe_load(spec.read_text(encoding="utf-8")) or {}).get("prompt", "").strip()
+    if not prompt:
+        die(f"{spec} の prompt が空")
+    base = d / "base.jpg"
+    bkey = sha("wipe-base", ep.cfg["image_model"], prompt, WIPE_BASE)
+    made = []
+    if a.force or not fresh(base, bkey):
+        ep.need_external("Gemini のワイプ用キャラクター画像生成")
+        gemini_image(ep, prompt + " " + WIPE_BASE, base); mark(base, bkey); made.append("base")
+    bh = hashlib.sha256(base.read_bytes()).hexdigest()[:16]
+    for name, text in WIPE_VARIANTS.items():
+        dst, key = d / f"{name}.jpg", sha("wipe-var", ep.cfg["image_model"], bh, text)
+        if a.force or not fresh(dst, key):
+            ep.need_external("Gemini のワイプ用キャラクター画像生成")
+            gemini_image(ep, WIPE_EDIT + text, dst, src=base); mark(dst, key); made.append(name)
+    print(f"ワイプのキャラクター: {d}。今回生成: {', '.join(made) or 'なし'}")
+    wipe_sprites(ep, d)
+    print(f"差分の確認用: {d / 'sprites' / 'sheet.png'}(口 {len(MOUTHS)} × 目 {len(EYES)}。顔や髪がずれていたら、その差分の jpg と .key を消して wipe をやり直す)")
+
+
+def wipe_patch_mask(base, var):
+    """var のうちベースと違う部分(口や目)のマスク。JPEG のゆらぎで散らばる小さな差は捨て、まとまった差の塊だけを残す"""
+    import numpy as np
+    from PIL import Image, ImageFilter
+    a = np.asarray(base.convert("RGB"), dtype=np.int16); b = np.asarray(var.convert("RGB"), dtype=np.int16)
+    diff = (np.abs(a - b).sum(2) > 60).astype(np.float32)
+    B = 16  # 16px のブロックごとに差の密度を見る
+    h, w = diff.shape[0] // B, diff.shape[1] // B
+    dens = diff[:h * B, :w * B].reshape(h, B, w, B).mean((1, 3))
+    on = dens > 0.06
+    seen, blobs = np.zeros_like(on), []
+    for y0 in range(h):  # つながったブロックの塊を集める
+        for x0 in range(w):
+            if on[y0, x0] and not seen[y0, x0]:
+                st, cells = [(y0, x0)], []
+                seen[y0, x0] = True
+                while st:
+                    y, x = st.pop(); cells.append((y, x))
+                    for yy in range(y - 1, y + 2):
+                        for xx in range(x - 1, x + 2):
+                            if 0 <= yy < h and 0 <= xx < w and on[yy, xx] and not seen[yy, xx]:
+                                seen[yy, xx] = True; st.append((yy, xx))
+                blobs.append(cells)
+    if not blobs:
+        return None
+    big = max(len(c) for c in blobs)
+    m = np.zeros((diff.shape[0], diff.shape[1]), np.uint8)
+    for cells in blobs:
+        if len(cells) < max(2, big * 0.3):
+            continue
+        ys, xs = [c[0] for c in cells], [c[1] for c in cells]
+        m[max(0, (min(ys) - 1) * B):(max(ys) + 2) * B, max(0, (min(xs) - 1) * B):(max(xs) + 2) * B] = 255
+    return Image.fromarray(m).filter(ImageFilter.GaussianBlur(6))
+
+
+def wipe_sprites(ep, d):
+    """差分をベースに貼り、口 × 目の 15 枚を作る。白い背景は透明にし、顔が窓に収まる正方形に切り出す"""
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFilter
+    names = ["base", *WIPE_VARIANTS]
+    key = sha("wipe-sprites", 4, [hashlib.sha256((d / f"{n}.jpg").read_bytes()).hexdigest()[:16] for n in names])
+    sd = d / "sprites"; sd.mkdir(exist_ok=True)
+    if fresh(sd / "sprites", key):
+        return
+    base = Image.open(d / "base.jpg").convert("RGB")
+    var = {n: Image.open(d / f"{n}.jpg").convert("RGB").resize(base.size) for n in WIPE_VARIANTS}
+    masks = {n: wipe_patch_mask(base, v) for n, v in var.items()}
+    for n, m in masks.items():
+        if m is None:
+            print(f"注意: 差分 {n} がベースと同じ(口や目が変わっていない)。{d / (n + '.jpg')} と .key を消して wipe をやり直す")
+    # 背景: 四隅から白に近い色を塗りつぶし、つながった部分を透明にする
+    probe = base.copy()
+    for xy in ((0, 0), (base.width - 1, 0), (0, base.height - 1), (base.width - 1, base.height - 1)):
+        ImageDraw.floodfill(probe, xy, (255, 0, 255), thresh=40)
+    alpha = Image.fromarray((np.asarray(probe) != [255, 0, 255]).any(2).astype(np.uint8) * 255).filter(ImageFilter.GaussianBlur(1.2))
+    ys, xs = np.where(np.asarray(alpha) > 128)
+    if not len(xs):
+        die("ワイプのキャラクター画像から人物を切り出せない(背景が白でない)。wipe.yaml の prompt に white background を入れて作り直す")
+    # 窓に入れる範囲: 人物の幅を基準に、頭の上に少し余白を取った正方形
+    side = int((xs.max() - xs.min()) * 1.12)
+    cx, top = (xs.min() + xs.max()) // 2, ys.min() - int(side * 0.10)
+    box = (cx - side // 2, top, cx - side // 2 + side, top + side)  # 画像の外にはみ出した部分は透明になる
+    sheet = Image.new("RGB", (len(MOUTHS) * 200, len(EYES) * 200), "white")
+    for j, eye in enumerate(EYES):
+        for i, mo in enumerate(MOUTHS):
+            im = base.copy()
+            if mo != "m0" and masks[mo] is not None:
+                im.paste(var[mo], (0, 0), masks[mo])
+            if eye != "open" and masks[eye] is not None:
+                im.paste(var[eye], (0, 0), masks[eye])
+            rgba = im.convert("RGBA"); rgba.putalpha(alpha)
+            out = rgba.crop(box)
+            out.save(sd / f"{mo}_{eye}.png")
+            sheet.paste(out.convert("RGB").resize((200, 200)), (i * 200, j * 200))
+    sheet.save(sd / "sheet.png")
+    mark(sd / "sprites", key)
+    (sd / "sprites.key").write_text(key, encoding="utf-8")
+
+
+def wipe_track(ep, voice, segs, fps, narr_of):
+    """ワイプの 1 フレームごとの状態 [口, 目, dx, dy, 角度, 不透明度, 名札] を作る。
+    segs は [(名前, フレーム数, 喋るか, カードか, 窓の位置)]、narr_of は {区切り名: (ナレーションの名前, 声が始まる秒)}。
+    ワイプはナレーションの区切りだけに出す(発表者の切り抜きの間は消す)。口の形は、ナレーションの拍ごとの母音
+    (asr.py visemes が書く narr/<名前>.vis.json)と音量で決める。母音がなければ音量だけで決める"""
+    import bisect
+    import random
+
+    import numpy as np
+    sr = 16000
+    raw = subprocess.run(["ffmpeg", "-v", "error", "-i", str(voice), "-ac", "1", "-ar", str(sr), "-f", "s16le", "-"], capture_output=True, check=True).stdout
+    x = np.frombuffer(raw, dtype=np.int16).astype(np.float32) / 32768
+    hop = sr / fps
+    n = sum(s[1] for s in segs)
+    rnd = random.Random(7)
+    win = int(hop * 2)
+    db = np.full(n, -90.0)
+    for f in range(n):
+        c = int((f + 0.5) * hop)
+        w = x[max(0, c - win // 2):c - win // 2 + win]
+        if len(w) == win:
+            db[f] = 20 * math.log10(float(np.sqrt((w ** 2).mean())) + 1e-9)
+    track, f0 = [], 0
+    for name, nf, talk, card, _ in segs:
+        mouth, env, nod = ["m0"] * nf, np.zeros(nf), np.zeros(nf)
+        if talk:
+            sd = db[f0:f0 + nf]
+            voiced = sd[sd > -60]
+            ref = float(np.percentile(voiced, 95)) if len(voiced) else -20
+            nname, lead = narr_of.get(name, (None, 0.0))
+            vf = ep.work / "narr" / f"{nname}.vis.json" if nname else None
+            morae = json.loads(vf.read_text(encoding="utf-8"))["morae"] if vf and vf.exists() else []
+            starts = [m[0] for m in morae]
+            prev_lvl, prev_k = 0, -1
+            for i in range(nf):
+                d = sd[i] - ref
+                lvl = 0 if d < -26 else 1 if d < -15 else 2 if d < -7 else 3
+                lvl = max(lvl, prev_lvl - 1)  # 閉じるときは 1 段ずつ
+                prev_lvl = lvl
+                t = i / fps - lead
+                k = bisect.bisect_right(starts, t) - 1
+                m = morae[k] if 0 <= k < len(morae) and t <= morae[k][1] + 0.06 else None
+                if lvl == 0 and not m:
+                    mouth[i] = "m0"
+                elif m:
+                    # 拍の母音の形。声が小さくても拍の中なら小さく開ける。ま行・ば行・ぱ行は拍の頭で一度唇を閉じる
+                    mouth[i] = "m0" if (m[3] and k != prev_k) else VOWEL_MOUTH[m[2]][max(lvl, 1) - 1]
+                else:
+                    mouth[i] = ("m1", "m2", "m3")[lvl - 1]
+                prev_k = k if m else prev_k
+                env[i] = max(0.0, min(1.0, (d + 26) / 26))
+            k_ = max(1, int(fps * 0.25))  # 頭の動きは音量をなめらかにしたものに合わせる
+            env = np.convolve(env, np.ones(k_) / k_, mode="same")
+            # 句の終わり(声が 0.3 秒以上途切れたところ)で小さくうなずく
+            quiet = 0
+            for i in range(nf):
+                quiet = quiet + 1 if env[i] < 0.08 else 0
+                if quiet == int(fps * 0.3) and i > fps:
+                    L = int(fps * 0.6)
+                    for j in range(L):
+                        if i - quiet + j < nf:
+                            nod[i - quiet + j] = max(nod[i - quiet + j], 0.6 * math.sin(math.pi * j / L) ** 2)
+        for i in range(nf):
+            t = (f0 + i) / fps
+            # 呼吸(ゆっくり上下)、話すときの頭の動き(音量に合わせて傾く・持ち上がる)、うなずき
+            dy = 1.6 * math.sin(2 * math.pi * t / 4.3) - 4 * env[i] + 7 * nod[i]
+            dx = 1.2 * math.sin(2 * math.pi * t / 6.1 + 1) * (0.5 + env[i])
+            ang = 1.6 * math.sin(2 * math.pi * t / 3.1) * env[i] + 0.5 * math.sin(2 * math.pi * t / 7.3) - 1.5 * nod[i]
+            track.append([mouth[i], "open", dx, dy, ang, 1.0 if talk else 0.0, card and name == "c_opening" and ep.has_intro])
+        f0 += nf
+    # まばたき: 2〜5 秒おきに 半目 → 閉 → 閉 → 半目。ときどき 2 回続ける
+    i = int(fps * rnd.uniform(0.8, 2))
+    while i < n - 4:
+        for j, e in enumerate(("half", "blink", "blink", "half")):
+            track[i + j][1] = e
+        i += 6 if rnd.random() < 0.15 else int(fps * rnd.uniform(2.0, 5.0))
+    # 不透明度: 先頭(サムネイル)には出さず 0.8 秒から。最後は締めのカードに合わせて消す。
+    # 出る・消える・窓の位置が変わる境目では、0.25 秒でフェードする
+    fade = int(fps * 0.25)
+    base = [r[5] for r in track]
+    for f in range(n):
+        t = f / fps
+        track[f][5] = base[f] * min(1.0, max(0.0, (t - 0.8) / 0.3)) * min(1.0, max(0.0, (n - f) / (fps * 1.2)))
+    f0 = 0
+    for k in range(1, len(segs)):
+        f0 += segs[k - 1][1]
+        if segs[k - 1][4] != segs[k][4] or segs[k - 1][2] != segs[k][2]:
+            for j in range(-fade, fade):
+                if 0 <= f0 + j < n:
+                    track[f0 + j][5] *= abs(j + 0.5) / fade
+    return track
+
+
+def wipe_positions(ep):
+    """ワイプの中心: (本編, {カード名 or default: (x, y)})"""
+    xy = lambda v: tuple(int(x) for x in str(v).split(","))
+    main, cards = xy(ep.cfg["wipe_pos"]), ep.cfg["wipe_pos_card"]
+    return main, ({k: xy(v) for k, v in cards.items()} if isinstance(cards, dict) else {"default": xy(cards)})
+
+
+def wipe_foot_css(ep, name, csubs):
+    """カードのフッター(.foot。breeze / business などの右下の番号とシリーズ名)がワイプに隠れないよう、右の余白をワイプの左端まで広げる CSS。
+    ワイプがないか、そのカードでワイプがフッターの高さまで来ないなら空。カードの字幕があるときはカードが縮んで右へずれるので、その分を換算する"""
+    if not ep.cfg["wipe"]:
+        return ""
+    main, cards = wipe_positions(ep)
+    x, y = cards.get(name, cards.get("default", main))
+    r = int(ep.cfg["wipe_size"]) / 2 + 8  # 縁と影の分
+    k, ox = (1690 / 1920, 115) if csubs else (1, 0)  # 字幕の帯: 1690x950 に縮めて x=115 に置く
+    if (y + r) / k < 1080 - 140:  # フッターは下端から 140px 以内
+        return ""
+    return f".foot {{ right: {round(1920 - (x - r - ox) / k + 16)}px !important; }}"
+
+
+def render_wipe(ep, voice, segs, out, narr_of):
+    """ワイプの映像(透明つき。窓 + 影 + 名札の大きさ)を作る。(映像のパス, 窓の左上の式 x, y)を返す"""
+    import numpy as np
+    from PIL import Image, ImageDraw, ImageFilter, ImageFont
+    d = wipe_dir(ep)
+    D = int(ep.cfg["wipe_size"]); P = 16; C = D + 2 * P
+    LH = 52  # 名札の高さ(窓の下に少し重ねる)
+    H = C + LH - 12
+    main, cards = wipe_positions(ep)
+    def where(name, card):
+        return cards.get(name[2:], cards.get("default", main)) if card else main
+    segs = [(*sg, where(sg[0], sg[3])) for sg in segs]
+    fps = ep.fps
+    vis = [hashlib.sha256(f.read_bytes()).hexdigest()[:12] for f in sorted((ep.work / "narr").glob("*.vis.json"))]
+    name = str(ep.cfg["wipe_name"] or "")
+    key = sha("wipe-render", 7, wipe_key(ep), hashlib.sha256(voice.read_bytes()).hexdigest(), segs, narr_of, vis, D, fps,
+              ep.cfg["wipe_bg"], ep.cfg["wipe_ring"], name, ep.has_intro)
+    # 窓の位置: 本編の位置を基準に、違う位置の区切りの間だけ差を足す
+    spans, t = [], 0.0
+    for _, nf, _, _, w in segs:
+        if w != main:
+            spans.append((t, t + nf / fps, w))
+        t += nf / fps
+    def expr(i):
+        m = main[i] - C // 2
+        return f"{m}" + "".join(f"+({w[i] - main[i]})*between(t,{a:.3f},{b - 0.0001:.3f})" for a, b, w in spans)
+    if fresh(out, key):
+        return out, expr(0), expr(1)
+    track = wipe_track(ep, voice, segs, fps, narr_of)
+    S = int(D * 1.14)  # 人物は窓より少し大きく置き、揺れても縁が見えないようにする
+    sp = {(m, e): Image.open(d / "sprites" / f"{m}_{e}.png").convert("RGBA").resize((S, S), Image.LANCZOS) for m in MOUTHS for e in EYES}
+    circle = Image.new("L", (C, H), 0)
+    ImageDraw.Draw(circle).ellipse((P, P, P + D - 1, P + D - 1), fill=255)
+    shadow = Image.new("RGBA", (C, H), (0, 0, 0, 0))
+    ImageDraw.Draw(shadow).ellipse((P + 2, P + 6, P + D + 1, P + D + 5), fill=(0, 0, 0, 70))
+    shadow = shadow.filter(ImageFilter.GaussianBlur(6))
+    ring = Image.new("RGBA", (C, H), (0, 0, 0, 0))
+    ImageDraw.Draw(ring).ellipse((P, P, P + D - 1, P + D - 1), outline=ep.cfg["wipe_ring"], width=max(4, D // 40))
+    plate = None
+    if name:  # 名札: 窓の下端に重ねる角丸の札
+        cands = [FONT_CACHE / k for k in ep.fonts if "Bold" in k] + [FONT_CACHE / k for k in ep.fonts] + sorted(FONT_CACHE.glob("*Bold*.ttf"))
+        ff = next((f for f in cands if f.suffix in (".ttf", ".otf") and f.exists()), None)
+        font = ImageFont.truetype(str(ff), 34) if ff else ImageFont.load_default()
+        plate = Image.new("RGBA", (C, H), (0, 0, 0, 0))
+        dr = ImageDraw.Draw(plate)
+        tw = dr.textlength(name, font=font)
+        w_, top = tw + 40, C - 30
+        dr.rounded_rectangle(((C - w_) / 2, top, (C + w_) / 2, top + LH - 8), radius=(LH - 8) // 2, fill="#ffffff", outline=ep.cfg["wipe_ring"])
+        dr.rounded_rectangle(((C - w_) / 2 + 3, top + 3, (C + w_) / 2 - 3, top + LH - 11), radius=(LH - 14) // 2, fill="#22262b")
+        dr.text((C / 2, top + (LH - 8) / 2), name, font=font, fill="#ffffff", anchor="mm")
+    bg = Image.new("RGBA", (C, H), ep.cfg["wipe_bg"])
+    proc = subprocess.Popen(["ffmpeg", "-v", "error", "-y", "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{C}x{H}", "-r", str(fps), "-i", "-",
+                             "-c:v", "qtrle", "-pix_fmt", "argb", str(out)], stdin=subprocess.PIPE)
+    blank = bytes(C * H * 4)
+    for m, e, dx, dy, ang, a, show_name in track:
+        if a <= 0:
+            proc.stdin.write(blank); continue
+        ch = sp[(m, e)].rotate(ang, resample=Image.BICUBIC, center=(S / 2, S * 0.9))  # 首の付け根あたりを中心に傾ける
+        win = bg.copy()
+        win.alpha_composite(ch, (round(P + (D - S) / 2 + dx), round(P + (D - S) * 0.15 + dy)))
+        frame = shadow.copy()
+        inner = Image.new("RGBA", (C, H), (0, 0, 0, 0)); inner.paste(win, (0, 0), circle)
+        frame.alpha_composite(inner); frame.alpha_composite(ring)
+        if show_name and plate:
+            frame.alpha_composite(plate)
+        if a < 1:
+            arr = np.asarray(frame).copy(); arr[..., 3] = (arr[..., 3] * a).astype(np.uint8); frame = Image.fromarray(arr)
+        proc.stdin.write(frame.tobytes())
+    proc.stdin.close()
+    if proc.wait():
+        die("ワイプの映像を書き出せなかった")
+    mark(out, key)
+    return out, expr(0), expr(1)
 
 
 # ---------- BGM ----------
@@ -1291,7 +1644,7 @@ def build_slide_seg(ep, ch, t, s, frame, vis, vkey, seg, narr, first, last, forc
     text = narr.get(name, "")
     has = bool(text) and wav.exists()
     lead, nd, d = slide_timing(ep, name, narr, first, last)
-    key = sha("slide2", Path(str(frame) + ".key").read_text(encoding="utf-8"), vkey, text,
+    key = sha("slide2", ep.sub_x, Path(str(frame) + ".key").read_text(encoding="utf-8"), vkey, text,
               hashlib.sha256(wav.read_bytes()).hexdigest() if has else "", ep.ass_head, ep.paper, ep.fps, first, last, round(d, 3))
     sn = slide_seg_name(ch, t, s)
     out = seg / f"{sn}.mkv"
@@ -1302,7 +1655,7 @@ def build_slide_seg(ep, ch, t, s, frame, vis, vkey, seg, narr, first, last, forc
     at = lead
     for x in lines:  # 字幕の表示時間は文字数で按分する
         span = nd * len(x) / total_chars
-        ass += f"Dialogue: 0,{ass_ts(at)},{ass_ts(min(at + span, d - 0.05))},Sub,,0,0,0,,{{\\pos(960,972)}}{x}\n"
+        ass += f"Dialogue: 0,{ass_ts(at)},{ass_ts(min(at + span, d - 0.05))},Sub,,0,0,0,,{{\\pos({ep.sub_x},972)}}{x}\n"
         at += span
     (seg / f"{sn}.ass").write_text(ass, encoding="utf-8")
     audio = ["-i", wav] if has else ["-f", "lavfi", "-t", f"{d:.3f}", "-i", "anullsrc=r=48000:cl=stereo"]
@@ -1571,7 +1924,7 @@ def cmd_video(ep, a):
             p, b, pg = browser()
         return pg
 
-    order = []
+    order, talk = [], {}  # talk: 区切りごとに (ナレーションを喋るか, カードか)。ワイプが使う
     for item in plan:
         if item[0] == "topic":
             _, ch, t = item
@@ -1593,24 +1946,30 @@ def cmd_video(ep, a):
                     sn = slide_seg_name(ch, t, s_)
                     if did:
                         made.append(sn); print(f"本編 {ch}-{t + 1}" + (f".{s_ + 1}" if s_ is not None else "") + f"「{cuts[ch][t]['title']}」 {sl.get('kind', 'text')} {d:.1f}s")
-                    order.append(sn)
+                    lead0, _, _ = slide_timing(ep, slide_name(ch, t, s_), narr, first, last)
+                    order.append(sn); talk[sn] = (bool(narr.get(slide_name(ch, t, s_))), False, slide_name(ch, t, s_), lead0)
                 continue
             d, did = build_topic(ep, e, ch, t, cuts[ch][t], frame, seg, a.force)
             if did:
                 made.append(f"t{ch}{t}"); print(f"本編 {ch}-{t + 1}「{cuts[ch][t]['title']}」 {d:.1f}s")
-            order.append(f"t{ch}{t}")
+            order.append(f"t{ch}{t}"); talk[f"t{ch}{t}"] = (False, False, None, 0.0)
             continue
         name, h, tail, used = item
         wav = ep.work / "narr" / f"{name}.wav"
         has_narr = name in narr and wav.exists()
         nd = dur_of(wav) if has_narr else 5.0
         out = seg / f"c_{name}.mkv"
+        csubs = bool(ep.cfg["card_subs"]) and has_narr
+        foot_css = wipe_foot_css(ep, name, csubs)
         key = sha("card", libkey, used, h, tail, ep.fps, name == last_card, hashlib.sha256(wav.read_bytes()).hexdigest() if has_narr else nd,
-                  img.stat().st_mtime if name == "ending" else 0, ep.paper, "thumb2" if name == "opening" else "")
+                  img.stat().st_mtime if name == "ending" else 0, ep.paper, "thumb2" if name == "opening" else "",
+                  (ep.card_ass_head, narr.get(name)) if csubs else "", foot_css)
         if a.force or not fresh(out, key):
             pg_ = page()
             pg_.goto((ep.lib / "cards.html").as_uri() + "#" + h + f"&nd={nd:.2f}"); pg_.reload()
             pg_.wait_for_function("window.READY === true")
+            if foot_css:
+                pg_.add_style_tag(content=foot_css)
             d = max(pg_.evaluate("window.END") / 1000 + 1.0, 0.5 + nd + tail)
             nf = math.ceil(d * ep.fps)
             fd = seg / f"c_{name}"; fd.mkdir(exist_ok=True)
@@ -1623,7 +1982,18 @@ def cmd_video(ep, a):
             fo = 1.2 if name == last_card else 0.3  # 最後のカードはゆっくり消す
             audio = ["-i", wav] if has_narr else ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
             af = "[1:a]aresample=48000,loudnorm=I=-17:TP=-1.5:LRA=11,aresample=48000,asetpts=N/SR/TB,adelay=500:all=1,apad[a]" if has_narr else "[1:a]anull[a]"
-            base = f"[0:v]scale=in_color_matrix=bt601:in_range=pc:out_range=pc,format=rgb24,fade=t=out:st={d - fo:.3f}:d={fo}:color={ep.paper}"
+            sub = ""
+            if csubs:
+                # ナレーションの字幕: カードを 88% に縮めて上に寄せ、下にできた帯に出す(カードの文字と重ならない)
+                lines = sub_lines(narr[name]); total_chars = sum(len(x) for x in lines) or 1
+                ass, at = ep.card_ass_head, 0.5
+                for x in lines:
+                    span = nd * len(x) / total_chars
+                    ass += f"Dialogue: 0,{ass_ts(at)},{ass_ts(min(at + span, d - 0.05))},Narr,,0,0,0,,{{\\pos(960,1015)}}{x}\n"
+                    at += span
+                (seg / f"c_{name}.ass").write_text(ass, encoding="utf-8")
+                sub = f",scale=1690:950:flags=lanczos,pad=1920:1080:115:0:color={ep.paper},subtitles=seg/c_{name}.ass:fontsdir={FONT_CACHE},format=rgb24"
+            base = f"[0:v]scale=in_color_matrix=bt601:in_range=pc:out_range=pc,format=rgb24{sub},fade=t=out:st={d - fo:.3f}:d={fo}:color={ep.paper}"
             thumb_in = []
             if name == "opening":
                 # サムネイル: 停止中のプレーヤーは先頭フレームを表示するので、それを先頭に置き、0.5 秒かけてオープニングの頭に溶かす。
@@ -1638,10 +2008,10 @@ def cmd_video(ep, a):
             else:
                 vf = f"{base},fade=t=in:st=0:d=0.3:color={ep.paper},{TOYUV}[v]"
             run(["ffmpeg", "-v", "error", "-y", "-framerate", ep.fps, "-i", fd / "%05d.jpg", *audio, *thumb_in, "-filter_complex",
-                 f"{vf};{af}", "-map", "[v]", "-map", "[a]", "-t", f"{d:.3f}", *enc(ep), out])
+                 f"{vf};{af}", "-map", "[v]", "-map", "[a]", "-t", f"{d:.3f}", *enc(ep), out], cwd=ep.work)
             shutil.rmtree(fd)
             mark(out, key); made.append(f"c_{name}"); print(f"カード {name} {d:.1f}s")
-        order.append(f"c_{name}")
+        order.append(f"c_{name}"); talk[f"c_{name}"] = (has_narr, True, name, 0.5)
     if b:
         b.close(); p.stop()
 
@@ -1657,23 +2027,35 @@ def cmd_video(ep, a):
     # 平気だが、時刻を信じる側(Google ドライブ等の再エンコード、aresample=async)は声を捨てて無音を埋める
     # (2026-10 に発生)。時刻を「そろえる」のではなく「付け直す」こと。
     fps = float(ep.fps)
-    ins, fc, total = [], [], 0.0
+    ins, fc, total, segs = [], [], 0.0, []
     for i, n in enumerate(order):
         fr = int(subprocess.check_output(["ffprobe", "-v", "error", "-select_streams", "v", "-count_packets", "-show_entries", "stream=nb_read_packets", "-of", "csv=p=0", str(seg / f"{n}.mkv")]).split()[0].strip(b","))
-        ns = round(fr * 48000 / fps); total += fr / fps
+        ns = round(fr * 48000 / fps); total += fr / fps; segs.append((n, fr, *talk[n][:2]))
         ins += ["-i", seg / f"{n}.mkv"]
         fc.append(f"[{i}:a]aresample=48000,aformat=channel_layouts=stereo,asettb=1/48000,asetpts=N,apad=whole_len={ns},atrim=end_sample={ns},asetpts=N[a{i}]")
     fc.append("".join(f"[a{i}]" for i in range(len(order))) + f"concat=n={len(order)}:v=0:a=1[a]")
     voice = ep.work / "voice.wav"
     run(["ffmpeg", "-v", "error", "-y", *ins, "-filter_complex", ";".join(fc), "-map", "[a]", "-c:a", "pcm_s16le", voice])
     END = "asettb=1/48000,asetpts=N"
-    mix = ["-i", voice, "-map", "0:v", "-map", "1:a", "-af", END]
+    mix, graph = ["-i", voice], [f"[1:a]{END}[a]"]
     if bgm:
         # BGM は小さめに敷き、声(ナレーション・発表者)が入っている間はさらに下げる(サイドチェーン)
-        mix = ["-i", voice, "-i", bgm, "-filter_complex",
-               f"[2:a]aresample=48000,volume={ep.cfg['bgm_gain']},afade=t=in:st=0:d=1.0,afade=t=out:st={total - 3.0:.2f}:d=3.0[b];[1:a]asplit[m][k];"
-               f"[b][k]sidechaincompress=threshold=0.05:ratio=4:attack=15:release=500[bd];[m][bd]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.84:level=false,{END}[a]",
-               "-map", "0:v", "-map", "[a]"]
+        mix += ["-i", bgm]
+        graph = [f"[2:a]aresample=48000,volume={ep.cfg['bgm_gain']},afade=t=in:st=0:d=1.0,afade=t=out:st={total - 3.0:.2f}:d=3.0[b];[1:a]asplit[m][k];"
+                 f"[b][k]sidechaincompress=threshold=0.05:ratio=4:attack=15:release=500[bd];[m][bd]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.84:level=false,{END}[a]"]
+    vmap = "0:v"
+    if ep.cfg["wipe"]:
+        if not wipe_key(ep):
+            die(f"ワイプの画像がまだない。先に digest.py wipe {ep.root} を実行する(設定 wipe: {ep.cfg['wipe']})")
+        # 口の形に使う、ナレーションの拍ごとの母音(asr.py visemes。音声が同じなら作り直さない)
+        r = subprocess.run(["uv", "run", str(SKILL / "scripts" / "asr.py"), "visemes", str(ep.root)], check=False, capture_output=True, text=True, encoding="utf-8", errors="replace")
+        print(r.stdout.strip().splitlines()[-1] if r.returncode == 0 and r.stdout.strip() else "注意: ナレーションの母音を取れなかった。口は音量だけで動かす\n" + r.stderr[-800:])
+        wv, wx, wy = render_wipe(ep, voice, segs, ep.work / "wipe.mov", {n: talk[n][2:] for n in order})
+        wi = len(mix) // 2 + 1
+        mix += ["-i", wv]
+        graph.append(f"[0:v]scale={RGB_IN}[bv];[{wi}:v]format=rgba[wp];[bv][wp]overlay=x='{wx}':y='{wy}':eval=frame:format=gbrp:eof_action=pass,{TOYUV}[v]")
+        vmap = "[v]"
+    mix += ["-filter_complex", ";".join(graph), "-map", vmap, "-map", "[a]"]
     tmp = ep.work / "digest.mp4"
     run(["ffmpeg", "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", seg / "list.txt", *mix, "-c:v", "libx264", "-preset", "medium", "-crf", "18", "-pix_fmt", "yuv420p", *TAG,
          "-r", ep.fps, "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-t", f"{total:.3f}", "-movflags", "+faststart", tmp])
@@ -1748,7 +2130,7 @@ def main():
     for f in (sys.stdout, sys.stderr):  # Windows のパイプ出力は既定が cp932 で、日本語の一部の文字で落ちる。UTF-8 にそろえる
         f.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["init", "minutes", "sheet", "grid", "crop", "frames", "plan", "image", "narration", "bgm", "video", "voices", "chars", "status", "shot", "figures"])
+    ap.add_argument("cmd", choices=["init", "minutes", "sheet", "grid", "crop", "frames", "plan", "image", "narration", "bgm", "video", "voices", "chars", "wipe", "status", "shot", "figures"])
     ap.add_argument("dir")
     ap.add_argument("args", nargs="*")
     ap.add_argument("--force", action="store_true", help="キャッシュを無視して作り直す")
@@ -1762,7 +2144,7 @@ def main():
     ep = Ep(a.dir)
     ENV_DIRS[:] = [ep.root, ep.root.parent, Path.cwd()]
     {"init": cmd_init, "minutes": cmd_minutes, "sheet": cmd_sheet, "grid": cmd_grid, "crop": cmd_crop, "frames": cmd_frames, "plan": cmd_plan, "image": cmd_image, "narration": cmd_narration, "bgm": cmd_bgm,
-     "video": cmd_video, "voices": cmd_voices, "chars": cmd_chars, "status": cmd_status, "shot": cmd_shot, "figures": cmd_figures}[a.cmd](ep, a)
+     "video": cmd_video, "voices": cmd_voices, "chars": cmd_chars, "wipe": cmd_wipe, "status": cmd_status, "shot": cmd_shot, "figures": cmd_figures}[a.cmd](ep, a)
 
 
 if __name__ == "__main__":

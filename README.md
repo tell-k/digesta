@@ -247,6 +247,7 @@ Each file starts with a settings block between `---` lines. Meeting settings ove
   - The material is read by your agent session itself; what that session sends to its model provider depends on the agent
 - **Video**: by default the narration script (about ten sentences summarizing the meeting) goes to Gemini TTS and the music prompt to Lyria
 - **`pop` characters**: only the English appearance/pose descriptions in `digest/chars.yaml` go to Gemini image generation (no names or meeting content)
+- **Wipe character** (setting `wipe`): only the English appearance description in `wipe.yaml` and the character images made from it go to Gemini image generation/editing (no meeting content)
 - **Consent**: asked once, the first time a project builds a video; the answer is stored as `external_api` in `digesta.md`
 - **With `deny`**: narration uses macOS speech and there is no BGM. For a natural local voice, use `narration: voicevox`
 
