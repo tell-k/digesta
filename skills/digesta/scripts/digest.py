@@ -57,7 +57,7 @@ DEFAULTS = {
     "say_voice": "Kyoko",
     "bgm": "lyria",  # lyria / none / 音声ファイルのパス(会議のディレクトリからの相対)
     "bgm_model": "lyria-3.5",
-    "bgm_gain": 0.166,  # BGM の基準音量。-12 LUFS 前後の曲を約 -28 LUFS に下げる値
+    "bgm_gain": 0.166,  # BGM の基準音量(声がないときの音量)。-12 LUFS 前後の曲を約 -28 LUFS に下げる値。帯域を削るぶん、実際はもう少し小さい
     "bgm_prompt": "",  # 空ならスタイルの既定(style.yaml)を使う
     "clean_audio": True,  # 元音声の整音(低域カット・軽いノイズ除去・軽いコンプレッサー)
     "credit": "",  # 締めカードの最下部に出す表記。voicevox を使うなら必須(例: ナレーション VOICEVOX:四国めたん)
@@ -82,6 +82,7 @@ DEFAULTS = {
 RGB_IN = "in_color_matrix=bt709:in_range=tv:out_range=pc,format=gbrp"
 TOYUV = "scale=out_color_matrix=bt709:out_range=tv,format=yuv420p"
 TAG = ["-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709", "-color_range", "tv"]
+BGM_EQ = "highpass=f=120,lowpass=f=4500,equalizer=f=2500:t=q:w=1.2:g=-6"  # BGM から声の帯域と高域を引く
 CLEAN = "highpass=f=70,afftdn=nr=10:nf=-45:tn=1,acompressor=threshold=-21dB:ratio=2.5:attack=8:release=180:makeup=1.5"
 ASS_HEAD = """[Script Info]
 ScriptType: v4.00+
@@ -2039,10 +2040,13 @@ def cmd_video(ep, a):
     END = "asettb=1/48000,asetpts=N"
     mix, graph = ["-i", voice], [f"[1:a]{END}[a]"]
     if bgm:
-        # BGM は小さめに敷き、声(ナレーション・発表者)が入っている間はさらに下げる(サイドチェーン)
+        # BGM は小さめに敷き、声(ナレーション・発表者)が入っている間はほぼ聞こえないところまで下げる(サイドチェーン。
+        # 実測で約 -21dB)。倍速で再生すると、プレーヤーの時間伸縮で音楽が崩れて声が聞き取りにくくなるため。
+        # 声が 1.5 秒ほど途切れると元の音量に戻る。release が短いと語間で BGM が出入りし、倍速ではそれが目立つ。
+        # 子音の帯域(2〜4kHz)と高域のアタックも削り、崩れた音が声にかぶらないようにする
         mix += ["-i", bgm]
-        graph = [f"[2:a]aresample=48000,volume={ep.cfg['bgm_gain']},afade=t=in:st=0:d=1.0,afade=t=out:st={total - 3.0:.2f}:d=3.0[b];[1:a]asplit[m][k];"
-                 f"[b][k]sidechaincompress=threshold=0.05:ratio=4:attack=15:release=500[bd];[m][bd]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.84:level=false,{END}[a]"]
+        graph = [f"[2:a]aresample=48000,{BGM_EQ},volume={ep.cfg['bgm_gain']},afade=t=in:st=0:d=1.0,afade=t=out:st={total - 3.0:.2f}:d=3.0[b];[1:a]asplit[m][k];"
+                 f"[b][k]sidechaincompress=threshold=0.02:ratio=12:attack=10:release=1200[bd];[m][bd]amix=inputs=2:normalize=0:duration=first,alimiter=limit=0.84:level=false,{END}[a]"]
     vmap = "0:v"
     if ep.cfg["wipe"]:
         if not wipe_key(ep):
