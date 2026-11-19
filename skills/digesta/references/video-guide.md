@@ -190,8 +190,8 @@ YAML の注意: 値に「 #」(空白のあとのシャープ)や「: 」を含�
 | `voice` | `Leda` など | gemini の声。聞き比べは `digest.py voices <会議> Leda Autonoe Zephyr` |
 | `voice_style` | 英文 | gemini への口調の指示 |
 | `bgm` | `lyria` / `none` / ファイルのパス | 既定は lyria。手持ちの曲を使うなら会議のディレクトリからの相対パス |
-| `bgm_gain` | `0.166` | BGM の基準音量。声がある間は自動でさらに下がる |
-| `bgm_prompt` | 英文 | Lyria への曲の指示。空ならスタイルの既定(doodle は明るいウクレレ、business は静かなピアノ) |
+| `bgm_gain` | `0.166` | BGM の基準音量(声がないときの音量)。声がある間は、ほぼ聞こえないところまで自動で下がる |
+| `bgm_prompt` | 英文 | Lyria への曲の指示。空ならスタイルの既定(doodle はゆったりしたウクレレ、business は静かなピアノ) |
 | `clean_audio` | `true` / `false` | 元音声の整音 |
 | `credit` | 文字列 | 締めカード最下部の表記。voicevox では必須 |
 
@@ -199,6 +199,8 @@ YAML の注意: 値に「 #」(空白のあとのシャープ)や「: 」を含�
 - voicevox はローカルのエンジンが要る: `docker run -d --name voicevox_digesta -p 127.0.0.1:50021:50021 voicevox/voicevox_engine:cpu-latest`。
 - BGM は一度作ると、`bgm_prompt` と `bgm_model` を変えない限り使い回す。ユーザーが聞いて気に入った曲は、`work/` の外にコピーして `bgm: そのパス` に固定しておくと、設定や skill の更新で作り直されない。
 - 曲を変えたいときは `digest.py bgm <会議> --force`。
+- 倍速で見る人が多い。プレーヤーの倍速は声向けの時間伸縮なので、音楽は崩れて声の邪魔になる。このため BGM は、声がある間はほぼ聞こえないところまで下げ(約 -21dB)、声が 1.5 秒ほど途切れると戻す。聞こえるのは主にオープニング、エンディング、カードの切り替わり。子音の帯域(2〜4kHz)と高域も削ってある。
+- `bgm_prompt` を自分で書くときも、遅いテンポ(60〜70 BPM。倍速で 120〜140 になる)、打楽器なし、音数少なめにする。手拍子やシェイカーのようなアタックの強い音は、倍速で二重に聞こえる。
 
 ## 6. ビルドと検証
 
@@ -245,7 +247,7 @@ uv run "$SK/scripts/asr.py" check-video <会議>       # クリップの切れ�
 | ナレーションの言い回しを変えたい | `narration.md` を編集 → `video` |
 | 読み間違いがある | 他の会議でも出る語ならプロジェクトの `digesta.md`、その会議の語なら会議フォルダの `digesta.md` か `narration.md` の `## 読み` に足す。または `narration --only 名前 --force` |
 | 声を変えたい | 会議の `digesta.md` の `voice` → `video`(全カードの音声と撮影をやり直す) |
-| BGM を小さく / 大きく | 会議の `digesta.md` の `bgm_gain` → `video`(結合だけなので2分) |
+| BGM を小さく / 大きく | 会議の `digesta.md` の `bgm_gain` → `video`(結合だけなので2分)。変わるのは声がないときの音量 |
 | BGM をなくす | 会議の `digesta.md` の `bgm: none` → `video` |
 | ドライブや Slack のプレビューでだけ音がおかしい | 音質や BGM を疑う前に、上の「音声を加工するときの決まり」の手順でパケットの時刻を見る |
 | 言葉の頭が切れている | `cuts.yaml` の `start` を前へ → `video` |

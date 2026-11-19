@@ -232,8 +232,8 @@ Each file starts with a settings block between `---` lines. Meeting settings ove
 | `voice` | Voice name | `Leda` | Gemini voice |
 | `voice_style` | English text | A bright young narrator | Speaking-style instruction for Gemini |
 | `bgm` | `lyria` / `none` / file path | `lyria` | Background music. Paths are relative to the meeting folder |
-| `bgm_gain` | Number | `0.166` | Base BGM level; it ducks automatically under speech |
-| `bgm_prompt` | English text | Style default | Music prompt for Lyria (doodle: cheerful ukulele, business: calm piano) |
+| `bgm_gain` | Number | `0.166` | Base BGM level (when nobody is speaking); under speech it ducks automatically until it is barely audible |
+| `bgm_prompt` | English text | Style default | Music prompt for Lyria (doodle: laid-back ukulele, business: calm piano). All are slow with no percussion, so they hold up at 1.5x / 2x playback |
 | `clean_audio` | `true` / `false` | `true` | Light cleanup of the source audio (low-cut, mild denoise, mild compression) |
 | `credit` | String | empty | Credit line at the bottom of the closing card |
 | `output_dir` | Path | `output` | Where deliverables go |

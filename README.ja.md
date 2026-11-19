@@ -230,8 +230,8 @@ GEMINI_API_KEY=ここにキー
 | `voice` | 声の名前 | `Leda` | gemini の声 |
 | `voice_style` | 英文 | 明るい若い女性の語り | gemini への口調の指示 |
 | `bgm` | `lyria` / `none` / ファイルのパス | `lyria` | 動画の BGM。パスは会議のディレクトリからの相対 |
-| `bgm_gain` | 数値 | `0.166` | BGM の基準音量。声がある間は自動でさらに下がる |
-| `bgm_prompt` | 英文 | スタイルの既定 | Lyria への曲の指示。doodle は明るいウクレレ、business は静かなピアノ |
+| `bgm_gain` | 数値 | `0.166` | BGM の基準音量(声がないときの音量)。声がある間は、ほぼ聞こえないところまで自動で下がる |
+| `bgm_prompt` | 英文 | スタイルの既定 | Lyria への曲の指示。doodle はゆったりしたウクレレ、business は静かなピアノ。どれも打楽器なしの遅いテンポ(倍速で再生しても崩れにくい) |
 | `clean_audio` | `true` / `false` | `true` | 元音声の整音(低域カット、軽いノイズ除去、軽いコンプレッサー) |
 | `credit` | 文字列 | 空 | 動画の締めカード最下部の表記 |
 | `output_dir` | パス | `output` | 成果物の出力先 |
